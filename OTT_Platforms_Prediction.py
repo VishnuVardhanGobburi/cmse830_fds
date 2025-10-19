@@ -82,7 +82,7 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 # TAB 1: Data Overview
 # -----------------------------
 with tab1:
-    rows, cols = netflix_imdb_df.shape
+    rows, cols = filtered_df.shape
 
     st.subheader("🧹 Data Preprocessing Overview")
     if filtered_df.empty:
@@ -807,4 +807,5 @@ with tab5:
 
         st.plotly_chart(fig_lollipop, use_container_width=True)
         st.markdown('**Quentin Tarantino** has the highest average rating, while all other directors maintained the average above 7.0')
+
 
