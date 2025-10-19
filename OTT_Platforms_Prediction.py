@@ -85,7 +85,10 @@ with tab1:
     rows, cols = netflix_imdb_df.shape
 
     st.subheader("🧹 Data Preprocessing Overview")
-    avg_rating = netflix_imdb_df['averageRating'].mean().round(2)
+    if filtered_df.empty:
+        avg_rating = 0  # or np.nan if you prefer
+    else:
+        avg_rating = filtered_df['averageRating'].mean().round(2)
 
     # --- KPI Section ---
     st.markdown("### 📊 Dataset Summary")
@@ -93,7 +96,7 @@ with tab1:
     col1.metric("Rows", f"{rows:,}")
     col2.metric("Columns", f"{cols}")
     col3.metric("Avg IMDb Rating ⭐", f"{avg_rating}")
-
+    
 
     st.markdown("The aim of this project is to perform an in-depth exploratory data analysis (EDA) and predictive modeling on Netflix IMDb datasets to uncover insights into content trends and audience preferences. To acheive my aim, I have used Netflix and IMDb datasets.")
     st.header("Data Overview")
@@ -804,3 +807,4 @@ with tab5:
 
         st.plotly_chart(fig_lollipop, use_container_width=True)
         st.markdown('**Quentin Tarantino** has the highest average rating, while all other directors maintained the average above 7.0')
+
