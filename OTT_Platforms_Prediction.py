@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+
 st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 
 # -----------------------------
@@ -15,6 +16,8 @@ netflix_df['director'] = netflix_df['director'].str.split(', ')
 netflix_df['country'] = netflix_df['country'].str.split(', ')
 netflix_df['listed_in'] = netflix_df['listed_in'].str.split(', ')
 netflix_df = netflix_df.explode('director').explode('country').explode('listed_in').reset_index(drop=True)
+imdb_basics_df=pd.read_csv('imdb_basics_sample.csv')
+imdb_ratings_df=pd.read_csv('imdb_ratings_sample.csv')
 
 # -----------------------------
 # Sidebar Filters
@@ -48,11 +51,17 @@ adult_filter = st.sidebar.multiselect(
     default=netflix_imdb_df['isAdult'].dropna().unique()
 )
 
+all_ratings = sorted(netflix_imdb_df['rating'].dropna().unique())
 rating_filter = st.sidebar.multiselect(
-    "Select Rating",
-    options=netflix_imdb_df['rating'].dropna().unique(),
-    default=netflix_imdb_df['rating'].dropna().unique()
+    "Select rating",
+    options=["All"] + all_ratings,
+    default=["All"],
+    help="Select ratings"
 )
+if "All" in rating_filter:
+    filtered_df = netflix_imdb_df.copy()
+else:
+    filtered_df = netflix_imdb_df[netflix_imdb_df['rating'].isin(country_filter)]
 
 release_year_range = st.sidebar.slider(
     "Select Release Year Range",
@@ -66,16 +75,16 @@ filtered_df = netflix_imdb_df[
     (netflix_imdb_df['type'].isin(type_filter)) &
     (netflix_imdb_df['country'] if "All" in country_filter else netflix_imdb_df['country'].isin(country_filter)) &
     (netflix_imdb_df['isAdult'].isin(adult_filter)) &
-    (netflix_imdb_df['rating'].isin(rating_filter)) &
+    (netflix_imdb_df['rating'] if "All" in rating_filter else netflix_imdb_df['rating'].isin(rating_filter)) &
     (netflix_imdb_df['release_year'].between(release_year_range[0], release_year_range[1]))
 ]
 
 # -----------------------------
 # Page Tabs
 # -----------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5,tab6, tab7 = st.tabs([
     "Data Overview", "Missing Value Analysis",
-    "Univariate Analysis", "Bivariate Analysis", "Insights"
+    "Univariate Analysis", "Bivariate Analysis","Title Analysis", "IMDb Rating Analysis","Encoding"
 ])
 
 # -----------------------------
@@ -96,14 +105,21 @@ with tab1:
     col1.metric("Rows", f"{rows:,}")
     col2.metric("Columns", f"{cols}")
     col3.metric("Avg IMDb Rating ⭐", f"{avg_rating}")
-    
+
 
     st.markdown("The aim of this project is to perform an in-depth exploratory data analysis (EDA) and predictive modeling on Netflix IMDb datasets to uncover insights into content trends and audience preferences. To acheive my aim, I have used Netflix and IMDb datasets.")
     st.header("Data Overview")
-    st.dataframe(filtered_df.head(50))
+    st.write("Netflix dataset")
+    st.dataframe(netflix_df.head(5))
+    st.write("IMDb basics dataset")
+    st.dataframe(imdb_basics_df.head(5))
+    st.write("IMDb ratings dataset")
+    st.dataframe(imdb_ratings_df.head(5))
+    st.write("Dataset after merging")
+    st.dataframe(filtered_df.head(5))
     st.write(f"Shape of Dataset: {filtered_df.shape}")
-    st.write("### Column Information:")
-    st.write(filtered_df.dtypes)
+    # st.write("### Column Information:")
+    # st.write(filtered_df.dtypes)
     st.subheader("🧹 Data Preprocessing Overview")
 
     st.markdown("""
@@ -136,7 +152,7 @@ with tab1:
 with tab2:
     selected_missing_viz = st.multiselect(
     "Select Misisng Value Visualizations",
-    ["Missing values", "Analysis with Content Type", "Missing Value Trend", "Conditional Probability"],
+    ["Missing values", "Analysis with Content Type", "Missing Value Trend", "Conditional Probability","Imputation"],
     default=["Missing values"]
 )
     if "Missing values" in selected_missing_viz:
@@ -202,8 +218,9 @@ with tab2:
         )
 
         st.plotly_chart(fig_heat, use_container_width=True)
+        st.markdown("From the above visualizations, we can observe that the **director** and **country** columns contain missing values.")
 
-    if "Conditional Probability" in selected_missing_viz:
+    elif "Conditional Probability" in selected_missing_viz:
     # Create cross-tab
         crossbar_1 = pd.crosstab(netflix_df['director'].isna(), netflix_df['country'].isna())
 
@@ -245,33 +262,9 @@ with tab2:
         st.markdown(f"- **P(Director missing):** {p_director_missing} %")
         st.markdown(f"- **P(Country missing | Director missing):** {p_country_given_director_missing} %")
 
-    if "Analysis with Content Type" in selected_missing_viz:
-        # --- Step 1: Calculate missing % by type ---
-        title_missing = netflix_df.groupby('type')['director'].apply(lambda x: x.isna().mean() * 100)
-        types = title_missing.index
-        missing_pct = title_missing.values
-
-        # --- Step 2: Create bar chart ---
-        fig = go.Figure(go.Bar(
-            x=types,
-            y=missing_pct,
-            text=[f'{val:.2f}%' for val in missing_pct],  # show value on bar
-            textposition='outside',
-            marker_color='salmon'
-        ))
-
-        # --- Step 3: Layout ---
-        fig.update_layout(
-            title="% of Title Type with Missing Director",
-            xaxis_title="Title Type",
-            yaxis_title="Missing %",
-            yaxis=dict(range=[0, max(missing_pct)*1.2]),  # add space for labels
-            template='plotly_white'
-        )
-
-        # --- Step 4: Streamlit display ---
-        st.plotly_chart(fig, use_container_width=True)
-
+        st.markdown("Overall, 7.05% of entries have missing country information. Among those entries with missing country, 46.66% also have missing director information. In comparison, 25.37% of all entries have missing director values. Conversely, for entries with missing director information, 12.96% have missing country values.")
+        st.markdown("Missing director values are much more likely when country information is missing, indicating a strong association between the two. However, missing country values are relatively uncommon even when director information is absent, suggesting that missingness in country is more independent.")
+    elif "Analysis with Content Type" in selected_missing_viz:
 
         # Calculate missing % by title type
         missing_counts = netflix_df[netflix_df['director'].isna()]['type'].value_counts()
@@ -328,33 +321,6 @@ with tab2:
         st.plotly_chart(fig, use_container_width=True)
 
 
-        
-        # --- Step 1: Calculate missing % by title type for 'country' ---
-        title_missing = netflix_df.groupby('type')['country'].apply(lambda x: x.isna().mean()*100)
-        types = title_missing.index
-        missing_pct = title_missing.values
-
-        # --- Step 2: Create interactive bar chart ---
-        fig = go.Figure(go.Bar(
-            x=types,
-            y=missing_pct,
-            text=[f'{val:.2f}%' for val in missing_pct],  # show value on top
-            textposition='outside',
-            marker_color='salmon'
-        ))
-
-        # --- Step 3: Layout ---
-        fig.update_layout(
-            title="% of Title Type with Missing Country",
-            xaxis_title="Title Type",
-            yaxis_title="Missing %",
-            yaxis=dict(range=[0, max(missing_pct)*1.2]),
-            template='plotly_white'
-        )
-
-        # --- Step 4: Show in Streamlit ---
-        st.plotly_chart(fig, use_container_width=True)
-
         # --- Step 1: Calculate % of missing countries by title type ---
         country_missing_counts = netflix_df[netflix_df['country'].isna()]['type'].value_counts()
         country_missing_share = (country_missing_counts / country_missing_counts.sum()) * 100
@@ -382,7 +348,12 @@ with tab2:
 
         # --- Step 4: Show in Streamlit ---
         st.plotly_chart(fig, use_container_width=True)
-    if "Missing Value Trend" in selected_missing_viz: 
+        st.markdown("**Summary:**")
+        st.markdown("- The majority of missing **director** values come from **TV Shows - (94.85%)**, with a small portion from **Movies - (5.15%)**. " \
+        "Therefore, the missing entries in the director column do not appear to be missing completely at random (MCAR)")
+        st.markdown("- The missing values in the **country** column are distributed almost evenly between **Movies - (51.04%)** and **TV Shows - (48.96%)**.")
+
+    elif "Missing Value Trend" in selected_missing_viz: 
         # --- Step 1: Calculate % missing by release_year and filter from 1945 ---
         year_missing = netflix_df.groupby('release_year')['director'].apply(lambda x: x.isna().mean()*100)
         year_missing = year_missing[year_missing.index >= 1945]
@@ -437,7 +408,24 @@ with tab2:
 
         # --- Step 4: Show in Streamlit ---
         st.plotly_chart(fig, use_container_width=True)
-
+        st.markdown("**Director**")
+        st.markdown("- The missing values show notable spikes in the 1960s and 1970s, reaching up to around 40%. Between 1980 and 2000, missingness is more consistent and generally below 15%. From 2010 onward, there is a steady increase, culminating at approximately 43% missing by 2020")
+        st.markdown("**Country**")
+        st.markdown("- Country missing values are generally low, staying mostly below 10%, with brief spikes of 20–30% in the 1960s and 1980s. After 2000, missingness remains minimal until around 2020, when it rises sharply to about 30%.")
+        
+    elif "Imputation" in selected_missing_viz: 
+        st.code("""
+        netflix_df['director']=netflix_df['director'].fillna("Unknown")
+                """,language='python')
+        st.code("""
+        netflix_df['country']=netflix_df['country'].fillna(netflix_df['country'].mode()[0])
+                """,language='python')         
+        
+        st.code("""
+        netflix_df['rating']=np.where(netflix_df['rating'].str.contains('min', na=False) | netflix_df['rating'].isna() , "NR",netflix_df['rating']) 
+                """,language='python')        
+        
+        st.write("Based on the performed Missing Value Analysis, Performed the above imputation")
 
 # -----------------------------
 # TAB 3: Univariate Analysis
@@ -527,72 +515,152 @@ with tab4:
         st.markdown('It can be seen that no two features are highly correlated')
 
 
-# -----------------------------
-# TAB 5: Insights
-# -----------------------------
 with tab5:
-    st.header("Key Insights")
+    df_dash = filtered_df.copy()
 
-    selected_insights = st.multiselect(
-        "Select Insight Visualizations",
-        ["Title Type", "Top Genres", "Adult IMDb rating", "Content rating",
-         'Top Countries', 'IMDb Trend','Top Directors'],
-        default=["Top Genres"]
-    )
+    # KPI metrics
+    total_titles = int(df_dash['title'].nunique()) if not df_dash.empty else 0
+    total_genres = int(df_dash['listed_in'].nunique()) if not df_dash.empty else 0
+    total_ratings = int(df_dash['rating'].nunique()) if not df_dash.empty else 0
+    start_year = int(df_dash['release_year'].min()) if not df_dash.empty else 0
+    end_year = int(df_dash['release_year'].max()) if not df_dash.empty else 0
+    total_locations = int(df_dash['country'].nunique()) if not df_dash.empty else 0
 
-    if "Title Type" in selected_insights:
-        # --- Average IMDb Rating by Type (Bar Chart) ---
-        type_avg = filtered_df.groupby('type', as_index=False)['averageRating'].mean()
+  #  st.markdown("### 📊 Netflix Overview Dashboard")
 
-        fig_bar = px.bar(
-            type_avg,
-            x='type',
-            y='averageRating',
-            color='type',
-            text='averageRating',
-            color_discrete_map={'Movie': 'steelblue', 'TV Show': 'salmon'},
-            title='Average IMDb Rating by Title Type'
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1.metric("Total Titles", f"{total_titles:,}")
+    c2.metric("Total Genres", f"{total_genres:,}")
+    c3.metric("Total Ratings", f"{total_ratings:,}")
+    c4.metric("Start Year", f"{start_year}")
+    c5.metric("End Year", f"{end_year}")
+    c6.metric("Total Locations", f"{total_locations:,}")
+    # ---------- Row 1: Genres (bar) | Type donut | Ratings (bar)
+    row1c1, row1c2, row1c3 = st.columns([1.2, 0.8, 1])
+    # Genres by total titles (top 12)
+    with row1c1:
+        genres = df_dash[['listed_in', 'title']].dropna()
+        genre_counts = genres.groupby('listed_in')['title'].nunique().sort_values(ascending=False).reset_index()
+        top_genres = genre_counts.head(12)
+        fig_genres = px.bar(
+            top_genres,
+            x='title', y='listed_in',
+            orientation='h',
+            title='Top Genres by Total Titles',
+            labels={'title': 'Total Titles', 'listed_in': 'Genre'},
+            color_discrete_sequence=['#E50914']
         )
-        fig_bar.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-        fig_bar.update_layout(template='plotly_white', showlegend=False, height=450)
-        st.plotly_chart(fig_bar, use_container_width=True)
+        fig_genres.update_yaxes(categoryorder='total ascending')
+        st.plotly_chart(fig_genres, use_container_width=True)
 
-        # --- Distribution of Title Types (Pie Chart) ---
-        type_count = filtered_df['type'].value_counts().reset_index()
-        type_count.columns = ['type', 'count']
-
-        fig_pie = px.pie(
-            type_count,
+    # Type donut (TV Show vs Movie)
+    with row1c2:
+        type_counts = df_dash['type'].value_counts().reset_index()
+        type_counts.columns = ['type', 'count']
+        fig_donut = px.pie(
+            type_counts,
             names='type',
             values='count',
-            color='type',
-            color_discrete_map={'Movie': 'steelblue', 'TV Show': 'salmon'},
-            title='Distribution of Netflix Title Types'
+            hole=0.5,
+            title='Distribution by Type',
+            color_discrete_sequence=['#E50914', '#585858']
         )
-        fig_pie.update_traces(textposition='inside', textinfo='label+percent')
-        fig_pie.update_layout(template='plotly_white', height=450)
-        st.plotly_chart(fig_pie, use_container_width=True)
-        st.markdown("**TV Show** tend to have slightly higher average ratings than Movie, However **Movie** dominates majority of the content")
+        fig_donut.update_traces(textinfo='percent+label')
+        st.plotly_chart(fig_donut, use_container_width=True)
 
-    if "Top Genres" in selected_insights:
-        # First, get the type for each genre (Movies or TV Shows)
-        # Create genre_df from the filtered dataset
-        genre_df = filtered_df[['listed_in', 'type', 'averageRating']].dropna()
-        genre_type = genre_df.groupby('listed_in')['type'].first().reset_index()
+    # Ratings by total titles
+    with row1c3:
+        rating_counts = df_dash['rating'].value_counts().reset_index()
+        rating_counts.columns = ['rating', 'count']
+        fig_ratings = px.bar(
+            rating_counts.sort_values('count', ascending=True),
+            x='count', y='rating',
+            orientation='h',
+            title='Ratings by Total Titles',
+            labels={'count': 'Total Titles', 'rating': 'Rating'},
+            color_discrete_sequence=['#E50914']
+        )
+        st.plotly_chart(fig_ratings, use_container_width=True)
 
-        # Merge with average rating
-        genre_avg = (
-            genre_df.groupby('listed_in')['averageRating']
-            .mean()
-            .reset_index()
-            .merge(genre_type, on='listed_in')
+    row2c1, row2c2 = st.columns([1.5, 1])
+
+    # Treemap: Countries by total titles
+    with row2c1:
+       country_counts = (filtered_df.groupby('country', as_index=False)['title'].count().round(2))
+
+
+# Create the choropleth map
+       fig_map = px.choropleth(
+            country_counts,
+            locations='country',        # Column with country names
+            locationmode='country names', 
+            color='title',      # Column to color by
+            hover_name='country',       # Show country on hover
+            color_continuous_scale=[(0, "#ffe5e5"), (1, "#ff0000")],
+            range_color=[0, 6000],        # IMDb rating scale
+            labels={'averageRating': 'Avg IMDb Rating'},
+            title='Average IMDb Rating by Country'
         )
 
-        # Take top 10 by average rating
-        genre_avg_top10 = genre_avg.sort_values('averageRating', ascending=False).head(10)
+       fig_map.update_layout(
+            template='plotly_white',
+            margin=dict(l=20, r=20, t=50, b=20)
+        )
 
-        # Gradient bar chart colored by type
-        fig_bar = px.bar(
+        # Display in Streamlit
+       st.plotly_chart(fig_map, use_container_width=True)
+
+    # Timeline: Total titles by release year
+    with row2c2:
+        time_series = df_dash.groupby('release_year')['title'].nunique().reset_index().sort_values('release_year')
+        fig_time = px.area(
+            time_series,
+            x='release_year', y='title',
+            title='Total Movies and TV Shows by Year',
+            color_discrete_sequence=['#E50914']
+        )
+        fig_time.update_traces(line=dict(color='#E50914'), fillcolor='rgba(229,9,20,0.15)')
+        st.plotly_chart(fig_time, use_container_width=True)
+
+    st.markdown("<small style='color: gray;'>Tip: Use the sidebar filters to refresh dashboard data dynamically.</small>", unsafe_allow_html=True)
+
+with tab6:
+    #st.markdown("## ⭐ IMDb Ratings Dashboard")
+
+    df_dash = filtered_df.copy()
+
+    # --- KPI SECTION ---
+    avg_rating = df_dash['averageRating'].mean().round(2)
+    max_row = df_dash.loc[df_dash['averageRating'].idxmax()]
+    min_row = df_dash.loc[df_dash['averageRating'].idxmin()]
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Average IMDb Rating", f"{avg_rating:.2f}")
+
+    with col2:
+        st.metric("Highest IMDb Rating", f"{max_row['averageRating']:.2f}")
+        st.caption(f"Genre: {max_row['listed_in']}")
+
+    with col3:
+        st.metric("Lowest IMDb Rating", f"{min_row['averageRating']:.2f}")
+        st.caption(f"Genre: {min_row['listed_in']}")
+    
+    row1c1, row1c2, row1c3 = st.columns([2.5, 2.5, 2.5])
+    with row1c1:
+           genre_df = filtered_df[['listed_in', 'type', 'averageRating']].dropna()
+           genre_type = genre_df.groupby('listed_in')['type'].first().reset_index()
+
+            # Merge with average rating
+           genre_avg = (
+                genre_df.groupby('listed_in')['averageRating']
+                .mean()
+                .reset_index()
+                .merge(genre_type, on='listed_in')
+            )
+           genre_avg_top10 = genre_avg.sort_values('averageRating', ascending=False).head(10)
+           fig_bar = px.bar(
             genre_avg_top10,
             x='averageRating',
             y='listed_in',
@@ -600,10 +668,10 @@ with tab5:
             title="Top 10 Genres by Average IMDb Rating",
             labels={'averageRating': 'Average IMDb Rating', 'listed_in': 'Genre', 'type':'Title Type'},
             color='type',  # color by title type
-            color_discrete_map={'Movie':'steelblue', 'TV Show':'salmon'}
+            color_discrete_map={'Movie':'#585858', 'TV Show':'#E50914'}
         )
 
-        fig_bar.update_layout(
+           fig_bar.update_layout(
             yaxis=dict(categoryorder='total ascending'),  # highest rating on top
             height=500,
             template='plotly_white',
@@ -611,149 +679,9 @@ with tab5:
             xaxis=dict(showgrid=True),
         )
 
-        st.plotly_chart(fig_bar, use_container_width=True)
-
-        # Pie chart colored by type
-        fig_genre_pie = px.pie(
-            genre_avg_top10,
-            names='listed_in',
-            values='averageRating',
-            title="Proportion of Genre",
-            color='type',
-            color_discrete_map={'Movie':'steelblue', 'TV Show':'salmon'}
-        )
-
-        fig_genre_pie.update_traces(textposition='inside', textinfo='label+percent')
-        fig_genre_pie.update_layout(template='plotly_white', height=450)
-
-        st.plotly_chart(fig_genre_pie, use_container_width=True)
-        st.markdown('**Classic & Cult** TV has the highest average rating, while other genres maintains around 7. Also, it can be seen that all the genres maintain almost equal distribution')
-
-
-
-    if "Adult IMDb rating" in selected_insights:
-# Average IMDb rating by Adult
-        adult_avg = filtered_df.groupby('isAdult', as_index=False)['averageRating'].mean()
-        adult_avg['isAdult'] = adult_avg['isAdult'].map({0:'Non-Adult',1:'Adult'})
-
-        # --- Bar chart ---
-        fig_adult_bar = px.bar(
-            adult_avg,
-            x='isAdult',
-            y='averageRating',
-            text='averageRating',
-            title="Average IMDb Rating by Adult Flag",
-            labels={'isAdult':'Adult Flag','averageRating':'Average IMDb Rating'},
-            color='isAdult',
-            color_discrete_map={'Non-Adult':'steelblue','Adult':'salmon'}
-        )
-        fig_adult_bar.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-        fig_adult_bar.update_layout(template='plotly_white', height=450, showlegend=False)
-        st.plotly_chart(fig_adult_bar, use_container_width=True)
-
-
-        # --- Pie chart ---
-        fig_adult_pie = px.pie(
-            adult_avg,
-            names='isAdult',
-            values='averageRating',
-            title="Proportion of Adult Flag",
-            color='isAdult',
-            color_discrete_map={'Non-Adult':'steelblue','Adult':'salmon'}
-        )
-        fig_adult_pie.update_traces(textposition='inside', textinfo='label+percent')
-        fig_adult_pie.update_layout(template='plotly_white', height=450)
-        st.plotly_chart(fig_adult_pie, use_container_width=True)
-
-
-    if "Content rating" in selected_insights:
-        # Round values to 2 decimals
-        rating_avg = filtered_df.groupby('rating')['averageRating'].mean().reset_index()
-        avg_values = np.round(rating_avg['averageRating'].values, 2)
-
-        # Create a heatmap using a single-row DataFrame
-        fig = px.imshow(
-            [avg_values],               # single row of values
-            x=rating_avg['rating'],     # Netflix rating categories
-            y=['Average IMDb Rating'],  # label for row
-            text_auto=True,
-            aspect='auto',
-            color_continuous_scale='Viridis',  # continuous color scale
-            range_color=[0, 10]
-        )   
-
-        # Layout updates
-        fig.update_layout(
-            title='Average IMDb Rating by Netflix Rating',
-            template='plotly_white',
-            height=300,
-            xaxis_title='Netflix Rating',
-            yaxis_title='',
-            yaxis=dict(showticklabels=True),
-            title_font=dict(size=18, family='Arial', color='black')
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('All the ratings other UR has an average IMDb rating close to 6.5')
-
-    if "Top Countries" in selected_insights:
-        country_avg = (
-        filtered_df.groupby('country', as_index=False)['averageRating']
-        .mean()
-        .round(2)
-    )
-
-    # Create the choropleth map
-        fig_map = px.choropleth(
-            country_avg,
-            locations='country',        # Column with country names
-            locationmode='country names', 
-            color='averageRating',      # Column to color by
-            hover_name='country',       # Show country on hover
-            color_continuous_scale='Viridis',
-            range_color=[0, 10],        # IMDb rating scale
-            labels={'averageRating': 'Avg IMDb Rating'},
-            title='Average IMDb Rating by Country'
-        )
-
-        fig_map.update_layout(
-            template='plotly_white',
-            margin=dict(l=20, r=20, t=50, b=20)
-        )
-
-        # Display in Streamlit
-        st.plotly_chart(fig_map, use_container_width=True)
-        st.markdown("Most of the countries maintains the average rating around 6. while countries like **Germany**, **Namibia** have the rating around 7 and **Kahakasthan** and **Angola** have around 4")
-
-    if "IMDb Trend" in selected_insights:
-        # Compute average rating by release year
-        year_avg = filtered_df.groupby('release_year')['averageRating'].mean().reset_index()
-
-        # Line chart without markers
-        fig = px.line(
-            year_avg,
-            x='release_year',
-            y='averageRating',
-            title="IMDb Rating Trend Over Years",
-            labels={'release_year': 'Release Year', 'averageRating': 'Average IMDb Rating'}
-        )
-
-        fig.update_traces(mode='lines')  # only lines, no markers
-        fig.update_layout(
-            template='plotly_white',
-            height=400,
-            title_font=dict(size=18, family='Arial', color='black'),
-            yaxis=dict(range=[0, 10]),  # fix scale from 0 to 10
-            xaxis=dict(showgrid=True),
-            yaxis_title='Average IMDb Rating',
-            xaxis_title='Release Year'
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('Overall, ratings remain stable around **6.0–7.0**. Sporadically, the ratings spiked up to 8 and spiked down to 5.7')
-
-    if "Top Directors" in selected_insights:
-        # Create a slim dataframe for Directors
+           st.plotly_chart(fig_bar, use_container_width=True)
+    
+    with row1c2:
         director_df = filtered_df[['tconst', 'director', 'averageRating']].drop_duplicates(subset=['tconst'])
 
         # Filter directors with at least 10 unique titles
@@ -779,7 +707,7 @@ with tab5:
             x=director_avg['averageRating'],
             y=director_avg['director'],
             mode='lines',
-            line=dict(color='lightgray', width=2),
+            line=dict(color='#585858', width=2),
             showlegend=False
         ))
 
@@ -788,7 +716,7 @@ with tab5:
             x=director_avg['averageRating'],
             y=director_avg['director'],
             mode='markers+text',
-            marker=dict(size=12, color='steelblue'),
+            marker=dict(size=12, color='#E50914'),
             text=director_avg['averageRating'].round(2),
             textposition='middle right',
             name='Average Rating'
@@ -806,6 +734,114 @@ with tab5:
         )
 
         st.plotly_chart(fig_lollipop, use_container_width=True)
-        st.markdown('**Quentin Tarantino** has the highest average rating, while all other directors maintained the average above 7.0')
+    with row1c3:
+        year_avg = filtered_df.groupby('release_year')['averageRating'].mean().reset_index()
 
+        # Line chart without markers
+        fig = px.line(
+            year_avg,
+            x='release_year',
+            y='averageRating',
+            title="IMDb Rating Trend Over Years",
+            labels={'release_year': 'Release Year', 'averageRating': 'Average IMDb Rating'}
+        )
 
+        fig.update_traces(mode='lines',line=dict(color='red'))  # only lines, no markers
+        fig.update_layout(
+            template='plotly_white',
+            height=400,
+            title_font=dict(size=18, family='Arial', color='black'),
+            yaxis=dict(range=[0, 10]),  # fix scale from 0 to 10
+            xaxis=dict(showgrid=True),
+            yaxis_title='Average IMDb Rating',
+            xaxis_title='Release Year'
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+    row2c1 = st.columns([1])[0]
+    with row2c1:
+        country_avg = (
+        filtered_df.groupby('country', as_index=False)['averageRating']
+        .mean()
+        .round(2)
+    )
+
+    # Create the choropleth map
+        fig_map = px.choropleth(
+            country_avg,
+            locations='country',        # Column with country names
+            locationmode='country names', 
+            color='averageRating',      # Column to color by
+            hover_name='country',       # Show country on hover
+            color_continuous_scale=[(0, "#ffe5e5"), (1, "#ff0000")],
+            range_color=[0, 10],        # IMDb rating scale
+            labels={'averageRating': 'Avg IMDb Rating'},
+            title='Average IMDb Rating by Country'
+        )
+
+        fig_map.update_layout(
+            template='plotly_white',
+            margin=dict(l=20, r=20, t=50, b=20)
+        )
+
+        # Display in Streamlit
+        st.plotly_chart(fig_map, use_container_width=True)
+    row3c1 = st.columns([1])[0]
+    with row3c1:
+        rating_avg = filtered_df.groupby('rating')['averageRating'].mean().reset_index()
+        avg_values = np.round(rating_avg['averageRating'].values, 2)
+
+        # Create a heatmap using a single-row DataFrame
+        fig = px.imshow(
+            [avg_values],               # single row of values
+            x=rating_avg['rating'],     # Netflix rating categories
+            y=['Average IMDb Rating'],  # label for row
+            text_auto=True,
+            aspect='auto',
+            color_continuous_scale='Reds',  # continuous color scale
+            range_color=[0, 10]
+        )   
+
+        # Layout updates
+    fig.update_layout(
+            title=dict(
+                text='Average IMDb Rating by Netflix Rating',
+                x=0.5,
+                xanchor='center',
+                yanchor='top',
+                #pad=dict(b=10)  # 👈 adds space (gap) between title & graph
+            ),
+            template='plotly_white',
+            height=300,
+            margin=dict(t=80, l=20, r=20, b=20),  # 👈 extra top margin for spacing
+            xaxis_title='Netflix Rating',
+            yaxis_title='',
+            yaxis=dict(showticklabels=True),
+            title_font=dict(size=18, family='Arial', color='black')
+        )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+with tab7:
+    df_proc = netflix_imdb_df.copy()
+    st.write("Based on the dataset dimensions, we observe that country has 119 unique values, listed_in has 49 unique values, and rating has 14 unique values. Therefore, we will apply frequency encoding to the country and listed_in columns to efficiently handle their high cardinality, and use one-hot encoding for the rating column, given its relatively smaller number of unique categories.")
+
+    country_freq = df_proc['country'].value_counts(normalize=True)
+    df_proc['country_encoded'] = df_proc['country'].map(country_freq)
+
+    genre_freq = df_proc['listed_in'].value_counts(normalize=True)
+    df_proc['listed_in_encoded'] = df_proc['listed_in'].map(genre_freq)
+
+    df_proc = pd.get_dummies(df_proc, columns=['rating'], prefix='rating')
+    st.write("code for Encoding")
+    st.code("""
+    country_freq = df_proc['country'].value_counts(normalize=True)
+    df_proc['country_encoded'] = df_proc['country'].map(country_freq)
+            
+    genre_freq = df_proc['listed_in'].value_counts(normalize=True)
+    df_proc['listed_in_encoded'] = df_proc['listed_in'].map(genre_freq)
+            
+    df_proc = pd.get_dummies(df_proc, columns=['rating'], prefix='rating')
+            """, language="python")
+    
+    st.dataframe(df_proc.iloc[:,10:].head())
