@@ -821,6 +821,8 @@ with tab6:
         )
 
     st.plotly_chart(fig, use_container_width=True)
+    st.markdown("Netflix’s content reflects a strong focus on movies but noticable TV Shows, mature-rated titles, and international diversity" \
+    "ty.The U.S., India, and Europe lead in content production, showcasing Netflix’s global reach.Overall, the platform growth between 2010–2020 marks a major expansion")
 
 with tab7:
     df_proc = netflix_imdb_df.copy()
@@ -845,3 +847,4 @@ with tab7:
             """, language="python")
     
     st.dataframe(df_proc.iloc[:,10:].head())
+
