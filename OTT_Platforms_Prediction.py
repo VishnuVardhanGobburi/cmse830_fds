@@ -623,6 +623,9 @@ with tab5:
         st.plotly_chart(fig_time, use_container_width=True)
 
     st.markdown("<small style='color: gray;'>Tip: Use the sidebar filters to refresh dashboard data dynamically.</small>", unsafe_allow_html=True)
+    st.markdown("Netflix’s content reflects a strong focus on movies but noticable TV Shows, mature-rated titles, and international diversity" \
+    "ty.The U.S., India, and Europe lead in content production, showcasing Netflix’s global reach.Overall, the platform growth between 2010–2020 marks a major expansion")
+
 
 with tab6:
     #st.markdown("## ⭐ IMDb Ratings Dashboard")
@@ -821,9 +824,7 @@ with tab6:
         )
 
     st.plotly_chart(fig, use_container_width=True)
-    st.markdown("Netflix’s content reflects a strong focus on movies but noticable TV Shows, mature-rated titles, and international diversity" \
-    "ty.The U.S., India, and Europe lead in content production, showcasing Netflix’s global reach.Overall, the platform growth between 2010–2020 marks a major expansion")
-
+    
 with tab7:
     df_proc = netflix_imdb_df.copy()
     st.write("Based on the dataset dimensions, we observe that country has 119 unique values, listed_in has 49 unique values, and rating has 14 unique values. Therefore, we will apply frequency encoding to the country and listed_in columns to efficiently handle their high cardinality, and use one-hot encoding for the rating column, given its relatively smaller number of unique categories.")
@@ -847,4 +848,5 @@ with tab7:
             """, language="python")
     
     st.dataframe(df_proc.iloc[:,10:].head())
+
 
