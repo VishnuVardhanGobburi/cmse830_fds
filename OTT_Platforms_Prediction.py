@@ -623,7 +623,7 @@ with tab5:
         st.plotly_chart(fig_time, use_container_width=True)
 
     st.markdown("<small style='color: gray;'>Tip: Use the sidebar filters to refresh dashboard data dynamically.</small>", unsafe_allow_html=True)
-    st.markdown("Netflix’s content reflects a strong focus on movies but noticable TV Shows, mature-rated titles, and international diversity" \
+    st.markdown("Netflix’s content reflects a strong focus on movies, mature-rated titles, and international diversity" \
     "ty.The U.S., India, and Europe lead in content production, showcasing Netflix’s global reach.Overall, the platform growth between 2010–2020 marks a major expansion")
 
 
@@ -824,6 +824,8 @@ with tab6:
         )
 
     st.plotly_chart(fig, use_container_width=True)
+    st.markdown("Netflix content maintains a moderate IMDb rating around 6.4 and remained fairly stable over the decades, with classic and niche genres like “Classic & Cult TV” and “Science & Nature TV” performing the best. Directors such as Quentin Tarantino and Martin Scorsese consistently achieve the highest average ratings.
+Country-wise variation exists, but no region stands out dramatically, and content ratings other than UR has an average IMDb rating close to 6.5.")
     
 with tab7:
     df_proc = netflix_imdb_df.copy()
@@ -848,5 +850,6 @@ with tab7:
             """, language="python")
     
     st.dataframe(df_proc.iloc[:,10:].head())
+
 
 
