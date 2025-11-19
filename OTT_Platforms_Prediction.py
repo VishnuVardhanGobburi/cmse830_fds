@@ -4,6 +4,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from scipy.stats import ttest_ind
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import root_mean_squared_error, r2_score
 
 st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 
@@ -11,7 +14,7 @@ st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 # Load Dataset
 # -----------------------------
 
-netflix_imdb_df = pd.read_csv("netflix_imdb.csv")
+netflix_imdb_df = pd.read_csv("netflix_imdb_new.csv")
 netflix_df=pd.read_csv('netflix_titles.csv', usecols=['title','type','director','country','release_year','rating','duration','listed_in'])
 netflix_df['director'] = netflix_df['director'].str.split(', ')
 netflix_df['country'] = netflix_df['country'].str.split(', ')
@@ -45,13 +48,6 @@ else:
     filtered_df = netflix_imdb_df[netflix_imdb_df['country'].isin(country_filter)]
 
 
-
-adult_filter = st.sidebar.multiselect(
-    "Select Adult Content",
-    options=netflix_imdb_df['isAdult'].dropna().unique(),
-    default=netflix_imdb_df['isAdult'].dropna().unique()
-)
-
 all_ratings = sorted(netflix_imdb_df['rating'].dropna().unique())
 rating_filter = st.sidebar.multiselect(
     "Select rating",
@@ -75,7 +71,6 @@ release_year_range = st.sidebar.slider(
 filtered_df = netflix_imdb_df[
     (netflix_imdb_df['type'].isin(type_filter)) &
     (netflix_imdb_df['country'] if "All" in country_filter else netflix_imdb_df['country'].isin(country_filter)) &
-    (netflix_imdb_df['isAdult'].isin(adult_filter)) &
     (netflix_imdb_df['rating'] if "All" in rating_filter else netflix_imdb_df['rating'].isin(rating_filter)) &
     (netflix_imdb_df['release_year'].between(release_year_range[0], release_year_range[1]))
 ]
@@ -83,8 +78,8 @@ filtered_df = netflix_imdb_df[
 # -----------------------------
 # Page Tabs
 # -----------------------------
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "Data Overview", "Missing Value Analysis", "Bivariate Analysis", "Title Analysis", "IMDb Rating Analysis"
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "Data Overview", "Missing Value Analysis", "Bivariate Analysis", "Title Analysis", "IMDb Rating Analysis","Predictions"
 ])
 #Encoding
 
@@ -389,7 +384,8 @@ with tab2:
         st.markdown("- The missing values show notable spikes in the 1960s and 1970s, reaching up to around 40%. Between 1980 and 2000, missingness is more consistent and generally below 15%. From 2010 onward, there is a steady increase, culminating at approximately 43% missing by 2020")
         st.markdown("**Country**")
         st.markdown("- Country missing values are generally low, staying mostly below 10%, with brief spikes of 20–30% in the 1960s and 1980s. After 2000, missingness remains minimal until around 2020, when it rises sharply to about 30%.")
-        
+       
+
 # -----------------------------
 # TAB 3: Exploring IMDb Ratings
 # -----------------------------
@@ -413,7 +409,7 @@ with tab3:
         st.plotly_chart(fig_votes_rating, use_container_width=True)
 
     elif "Correlation" in selected_bi_viz:
-        num_cols = ['release_year', 'Movie_duration', 'TV Show_duration', 'numVotes','averageRating']
+        num_cols = ['release_year', 'TV Show_duration', 'runtimeMinutes','numVotes','averageRating']
 
         # Compute correlation
         corr = filtered_df[num_cols].corr().round(2)
@@ -781,3 +777,94 @@ with tab5:
     st.markdown("Netflix content maintains a moderate IMDb rating around 6.4 and remained fairly stable over the decades, with classic and niche genres like “Classic & Cult TV” and “Science & Nature TV” performing the best. Directors such as Quentin Tarantino and Martin Scorsese consistently achieve the highest average ratings.Country-wise variation exists, but no region stands out dramatically, and content ratings other than UR has an average IMDb rating close to 6.5.")
     
     st.markdown("<small style='color: gray;'>Tip: Use the sidebar filters to refresh dashboard data dynamically.</small>", unsafe_allow_html=True)
+
+with tab6:
+    st.title("IMDb Rating Prediction App")
+    country_freq = filtered_df['country'].value_counts(normalize=True)
+    filtered_df['country_encoded'] = filtered_df['country'].map(country_freq)
+
+    genre_freq = filtered_df['listed_in'].value_counts(normalize=True)
+    filtered_df['listed_in_encoded'] = filtered_df['listed_in'].map(genre_freq)
+
+    filtered_df['original_rating'] = filtered_df['rating']
+    filtered_df = pd.get_dummies(filtered_df, columns=['rating'], prefix='rating')
+
+
+    global_mean = filtered_df['averageRating'].mean()
+    director_mean = filtered_df.groupby('director')['averageRating'].mean()
+
+    filtered_df['director_encoded'] = filtered_df['director'].map(director_mean).fillna(global_mean)
+
+    movies_df = filtered_df[filtered_df['type'] == 'Movie'].copy()
+    tv_df = filtered_df[filtered_df['type'] == 'TV Show'].copy()
+    tv_df['total_runtime'] = tv_df['runtimeMinutes'] * tv_df['TV Show_duration']
+    tv_df=tv_df.drop(columns=['runtimeMinutes','TV Show_duration'])
+
+    # Columns for models
+    movie_features = ['country_encoded', 'listed_in_encoded', 'runtimeMinutes', 'director_encoded'] + \
+                    [col for col in filtered_df.columns if col.startswith('rating_')]
+
+    tv_features = ['country_encoded', 'listed_in_encoded', 'total_runtime', 'director_encoded'] + \
+                [col for col in filtered_df.columns if col.startswith('rating_')]
+
+    target = 'averageRating'
+
+    X_movie = movies_df[movie_features]
+    y_movie = movies_df[target]
+
+    X_train_m, X_test_m, y_train_m, y_test_m = train_test_split(X_movie, y_movie, test_size=0.2, random_state=42)
+
+    rf_movie = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf_movie.fit(X_train_m, y_train_m)
+    y_pred_rf_m = rf_movie.predict(X_test_m)
+
+    X_tv = tv_df[tv_features]
+    y_tv = tv_df[target]
+
+    X_train_t, X_test_t, y_train_t, y_test_t = train_test_split(X_tv, y_tv, test_size=0.2, random_state=42)
+
+    rf_tv = RandomForestRegressor(n_estimators=100, random_state=42)
+    rf_tv.fit(X_train_t, y_train_t)
+    y_pred_rf_t = rf_tv.predict(X_test_t)
+
+    content_type = st.selectbox("Select Type", ["Movie", "TV Show"])
+
+    if content_type == "Movie":
+        model = rf_movie
+        rmse_val = root_mean_squared_error(y_test_m, y_pred_rf_m)
+        r2_val = r2_score(y_test_m, y_pred_rf_m)
+        runtime_label = "Runtime (Minutes)"
+    else:
+        model = rf_tv
+        rmse_val = root_mean_squared_error(y_test_t, y_pred_rf_t)
+        r2_val = r2_score(y_test_t, y_pred_rf_t)
+        runtime_label = "Total Minutes"
+
+    st.header("Criteria Filters")
+
+    country_input = st.selectbox("Country", sorted(filtered_df['country'].dropna().unique()))
+    genre_input = st.selectbox("Genre", sorted(filtered_df['listed_in'].dropna().unique()))
+    director_input = st.selectbox("Director", sorted(filtered_df['director'].dropna().unique()))
+    rating_input = st.selectbox("Content Rating", sorted(filtered_df['original_rating'].unique()))
+    runtime_val = st.number_input(runtime_label, min_value=1, max_value=5000, value=100)
+
+    st.header("Model Performance")
+    st.metric("RMSE", f"{rmse_val:.3f}")
+    st.metric("R² Score", f"{r2_val:.3f}")
+
+    st.header("Predict IMDb Rating")
+
+    if st.button("Predict Rating"):
+        country_encoded = country_freq.get(country_input, 0)
+        genre_encoded = genre_freq.get(genre_input, 0)
+        director_encoded = director_mean.get(director_input, global_mean)
+
+        rating_encoded_cols = {col: 0 for col in filtered_df.columns if col.startswith('rating_')}
+        rating_col_name = f"rating_{rating_input}"
+        if rating_col_name in rating_encoded_cols:
+            rating_encoded_cols[rating_col_name] = 1
+
+        input_vector = [country_encoded, genre_encoded, runtime_val, director_encoded] + list(rating_encoded_cols.values())
+
+        prediction = model.predict([input_vector])[0]
+        st.success(f"⭐ Predicted IMDb Rating: {prediction:.2f}")
