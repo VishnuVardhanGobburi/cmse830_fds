@@ -14,7 +14,7 @@ st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 # Load Dataset
 # -----------------------------
 
-netflix_imdb_df = pd.read_csv("netflix_imdb.csv")
+netflix_imdb_df = pd.read_csv("netflix_imdb_merged.csv")
 netflix_df=pd.read_csv('netflix_titles.csv', usecols=['title','type','director','country','release_year','rating','duration','listed_in'])
 netflix_df['director'] = netflix_df['director'].str.split(', ')
 netflix_df['country'] = netflix_df['country'].str.split(', ')
@@ -868,6 +868,7 @@ with tab6:
 
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb Rating: {prediction:.2f}")
+
 
 
 
