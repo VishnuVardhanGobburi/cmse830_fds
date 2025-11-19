@@ -870,3 +870,4 @@ with tab6:
         st.success(f"⭐ Predicted IMDb Rating: {prediction:.2f}")
 
 
+
