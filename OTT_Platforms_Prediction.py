@@ -869,3 +869,4 @@ with tab6:
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb Rating: {prediction:.2f}")
 
+
