@@ -119,9 +119,6 @@ with tab1:
     st.dataframe(imdb_ratings_df.head(5))
     st.write("Dataset after merging")
     st.dataframe(filtered_df.head(5))
-    st.write(f"Shape of Dataset: {filtered_df.shape}")
-    # st.write("### Column Information:")
-    # st.write(filtered_df.dtypes)
     st.subheader("🧹 Data Preprocessing Overview")
 
     st.markdown("""
@@ -874,6 +871,7 @@ with tab6:
 
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb rating: {prediction:.2f}")
+
 
 
 
