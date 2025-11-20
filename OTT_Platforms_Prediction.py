@@ -85,7 +85,7 @@ filtered_df = netflix_imdb_df[
 # Page Tabs
 # -----------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "Data Overview", "Missing Value Analysis", "Exploring IMDb Ratings", "Title Analysis", "IMDb content_rating Analysis","Predict the IMDb content_rating"
+    "Data Overview", "Missing Value Analysis", "Exploring IMDb Ratings", "Title Analysis", "IMDb content_rating Analysis","Predict IMDb rating"
 ])
 #Encoding
 
@@ -871,6 +871,7 @@ with tab6:
 
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb rating: {prediction:.2f}")
+
 
 
 
