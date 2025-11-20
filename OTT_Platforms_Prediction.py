@@ -25,7 +25,9 @@ netflix_df['production_country'] = netflix_df['production_country'].str.split(',
 netflix_df['genre'] = netflix_df['genre'].str.split(', ')
 netflix_df = netflix_df.explode('director').explode('production_country').explode('genre').reset_index(drop=True)
 imdb_basics_df=pd.read_csv('imdb_basics_sample.csv')
+imdb_basics_df = imdb_basics_df.loc[:, ~netflix_imdb_df.columns.str.contains('^Unnamed')]
 imdb_ratings_df=pd.read_csv('imdb_ratings_sample.csv')
+imdb_ratings_df = imdb_ratings_df.loc[:, ~netflix_imdb_df.columns.str.contains('^Unnamed')]
 
 # -----------------------------
 # Sidebar Filters
@@ -872,4 +874,5 @@ with tab6:
 
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb rating: {prediction:.2f}")
+
 
