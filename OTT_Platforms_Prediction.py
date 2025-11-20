@@ -106,7 +106,7 @@ with tab1:
     col1, col2, col3 = st.columns(3)
     col1.metric("Rows", f"{rows:,}")
     col2.metric("Columns", f"{cols}")
-    col3.metric("Avg IMDb content_rating ⭐", f"{avg_rating}")
+    col3.metric("Avg IMDb rating ⭐", f"{avg_rating}")
 
 
     st.markdown("The aim of this project is to perform an in-depth exploratory data analysis (EDA) and predictive modeling on Netflix IMDb datasets to uncover insights into content trends and audience preferences. To acheive my aim, I have used Netflix and IMDb datasets.")
@@ -871,6 +871,7 @@ with tab6:
 
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb rating: {prediction:.2f}")
+
 
 
 
