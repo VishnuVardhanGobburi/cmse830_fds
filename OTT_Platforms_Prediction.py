@@ -16,6 +16,8 @@ st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 
 netflix_imdb_df = pd.read_csv("netflix_imdb_new.csv")
 netflix_imdb_df=netflix_imdb_df.rename(columns={'type':'content_type', 'country':'production_country','rating':'content_rating','listed_in':'genre','TV Show_duration':'episodes','runtimeMinutes':'runtime_mins','averageRating':'IMDb_avg_rating'})
+netflix_imdb_df = netflix_imdb_df.loc[:, ~netflix_imdb_df.columns.str.contains('^Unnamed')]
+netflix_imdb_df['episodes'] = netflix_imdb_df['episodes'].fillna(0)
 netflix_df=pd.read_csv('netflix_titles.csv', usecols=['title','type','director','country','release_year','rating','duration','listed_in'])
 netflix_df=netflix_df.rename(columns={'type':'content_type', 'country':'production_country','rating':'content_rating','listed_in':'genre','TV Show_duration':'episodes'})
 netflix_df['director'] = netflix_df['director'].str.split(', ')
@@ -870,3 +872,4 @@ with tab6:
 
         prediction = model.predict([input_vector])[0]
         st.success(f"⭐ Predicted IMDb rating: {prediction:.2f}")
+
