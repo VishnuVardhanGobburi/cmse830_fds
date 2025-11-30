@@ -1253,7 +1253,7 @@ with tab4:
         values shows **almost no spread**.  
         - This destroys real-world variability and can bias downstream models.
 
-        ➡️ **Not recommended** except as a naive baseline.
+        ➡️ **Not recommended**.
         """)
 
             # 2) KNN
@@ -1292,3 +1292,4 @@ with tab4:
         - It preserves both **variance** and **relationship with IMDb rating**, unlike Mode.  
         - It produces more stable estimates than a KNN in sparse regions.
         """)
+
