@@ -3,8 +3,15 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from scipy.stats import ttest_ind
+from plotly.subplots import make_subplots
+from scipy.stats import pearsonr
+import scipy.stats as stats
+from sklearn.impute import SimpleImputer, KNNImputer
+from sklearn.experimental import enable_iterative_imputer  # noqa: F401
+from sklearn.impute import IterativeImputer
+from sklearn.linear_model import LinearRegression, BayesianRidge
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import root_mean_squared_error, r2_score
 
@@ -29,446 +36,113 @@ imdb_basics_df = imdb_basics_df.loc[:, ~imdb_basics_df.columns.str.contains('^Un
 imdb_ratings_df=pd.read_csv('imdb_ratings_sample.csv')
 imdb_ratings_df = imdb_ratings_df.loc[:, ~imdb_ratings_df.columns.str.contains('^Unnamed')]
 
+# Track active tab
+if "active_tab" not in st.session_state:
+    st.session_state.active_tab = "tab0"
+
+# ===============================
+# Sidebar Filters for ONLY Tab-2
+# ===============================
+
+
 # -----------------------------
-# Sidebar Filters
+# Page Tabs
 # -----------------------------
-st.sidebar.header("Filters")
+tab0, tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    "Home","Title Analysis", "Netflix Content Success Analysis","Predict IMDb rating","Missing Value Analysis", "Data Overview",
+])
+
+st.sidebar.header("🔎 Filter Content")
 
 type_filter = st.sidebar.multiselect(
-    "Select content_type",
+    "Select Content Type",
     options=netflix_imdb_df['content_type'].dropna().unique(),
     default=netflix_imdb_df['content_type'].dropna().unique()
 )
 
 all_countries = sorted(netflix_imdb_df['production_country'].dropna().unique())
-
 country_filter = st.sidebar.multiselect(
-    "Select production_country",
+    "Select Production Country",
     options=["All"] + all_countries,
-    default=["All"],
-    help="Select countries. 'All' shows all data."
+    default=["All"]
 )
-if "All" in country_filter:
-    filtered_df = netflix_imdb_df.copy()
-else:
-    filtered_df = netflix_imdb_df[netflix_imdb_df['production_country'].isin(country_filter)]
-
 
 all_ratings = sorted(netflix_imdb_df['content_rating'].dropna().unique())
 rating_filter = st.sidebar.multiselect(
-    "Select content_rating",
+    "Select Content Rating",
     options=["All"] + all_ratings,
-    default=["All"],
-    help="Select ratings"
+    default=["All"]
 )
-if "All" in rating_filter:
-    filtered_df = netflix_imdb_df.copy()
-else:
-    filtered_df = netflix_imdb_df[netflix_imdb_df['content_rating'].isin(country_filter)]
 
 release_year_range = st.sidebar.slider(
-    "Select Release Year Range",
+    "Release Year Range",
     int(netflix_imdb_df['release_year'].min()),
     int(netflix_imdb_df['release_year'].max()),
     (int(netflix_imdb_df['release_year'].min()), int(netflix_imdb_df['release_year'].max()))
 )
 
 # Apply filters
-filtered_df = netflix_imdb_df[
-    (netflix_imdb_df['content_type'].isin(type_filter)) &
-    (netflix_imdb_df['production_country'] if "All" in country_filter else netflix_imdb_df['production_country'].isin(country_filter)) &
-    (netflix_imdb_df['content_rating'] if "All" in rating_filter else netflix_imdb_df['content_rating'].isin(rating_filter)) &
-    (netflix_imdb_df['release_year'].between(release_year_range[0], release_year_range[1]))
+filtered_df = netflix_imdb_df.copy()
+
+filtered_df = filtered_df[
+    (filtered_df['content_type'].isin(type_filter)) &
+    (filtered_df['release_year'].between(release_year_range[0], release_year_range[1]))
 ]
 
-# -----------------------------
-# Page Tabs
-# -----------------------------
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    "Data Overview", "Missing Value Analysis", "Exploring IMDb Ratings", "Title Analysis", "IMDb content_rating Analysis","Predict IMDb rating"
-])
-#Encoding
+if "All" not in country_filter:
+    filtered_df = filtered_df[filtered_df['production_country'].isin(country_filter)]
 
-# -----------------------------
-# TAB 1: Data Overview
-# -----------------------------
-with tab1:
-    rows, cols = filtered_df.shape
+if "All" not in rating_filter:
+    filtered_df = filtered_df[filtered_df['content_rating'].isin(rating_filter)]
 
-    st.subheader("🧹 Data Preprocessing Overview")
-    if filtered_df.empty:
-        avg_rating = 0  # or np.nan if you prefer
-    else:
-        avg_rating = filtered_df['IMDb_avg_rating'].mean().round(2)
+NETFLIX_HERO_URL = "https://static0.moviewebimages.com/wordpress/wp-content/uploads/2024/08/netflix-logo.jpeg?q=70&fit=crop&w=1600&h=900&dpr=1"
 
-    # --- KPI Section ---
-    st.markdown("### 📊 Dataset Summary")
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Rows", f"{rows:,}")
-    col2.metric("Columns", f"{cols}")
-    col3.metric("Avg IMDb rating ⭐", f"{avg_rating}")
+with tab0:
 
+    st.markdown(
+        f"""
+        <style>
+            .hero-container {{
+                position: relative;
+                width: 100%;
+                height: 600px; /* reduced height slightly */
+                overflow: hidden;
+                margin-top: -15px; /* ensures tabs visible */
+            }}
+            .hero-img {{
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                display: block;
+                filter: brightness(70%);
+            }}
+            .hero-text {{
+                position: absolute;
+                top: 35px;
+                left: 50px;
+                color: #ffffff;
+                font-size: 2.3rem;
+                font-weight: 800;
+                letter-spacing: 0.02em;
+                text-shadow: 0 0 20px rgba(0,0,0,0.95);
+                font-family: 'Bebas Neue', sans-serif;
+                line-height: 1.1;
+                z-index: 2;
+            }}
+        </style>
 
-    st.markdown("The aim of this project is to perform an in-depth exploratory data analysis (EDA) and predictive modeling on Netflix IMDb datasets to uncover insights into content trends and audience preferences. To acheive my aim, I have used Netflix and IMDb datasets.")
-    st.header("Data Overview")
-    st.write("Netflix dataset")
-    st.dataframe(netflix_df.head(5))
-    st.write("IMDb basics dataset")
-    st.dataframe(imdb_basics_df.head(5))
-    st.write("IMDb ratings dataset")
-    st.dataframe(imdb_ratings_df.head(5))
-    st.write("Dataset after merging")
-    st.dataframe(filtered_df.head(5))
-    st.subheader("🧹 Data Preprocessing Overview")
-
-    st.markdown("""
-    ### Steps Performed During Data Preprocessing
-
-    1. **Exploded Multi-Valued Columns**  
-    - Columns such as *directors*, *genre* (genres), and *production_country* often contained multiple comma-separated values.  
-    - These were **exploded** into separate rows to enable accurate aggregation and analysis.
-
-    2. **Split the Duration Column**  
-    - The *duration* column included both **minutes** (for movies) and **seasons** (for TV shows).  
-    - It was split into two new columns:  
-        - `duration_min` → for movie durations (in minutes)  
-        - `duration_seasons` → for TV show lengths (in seasons)
-
-    3. **Merged Multiple Datasets**  
-    - Three datasets were combined to create a unified and enriched Netflix dataset:  
-        - `netflix_titles.csv` (content metadata)  
-        - `IMDb_basics.csv` (movie/TV show identifiers)  
-        - `IMDb_ratings.csv` (average ratings and vote counts)  
-    - The merge was performed using the **IMDb title ID (tconst)**, **title** and **Release Year** to integrate metadata and ratings.
-
-    These preprocessing steps ensured data consistency, completeness, and accuracy for further analysis and IMDb content_rating prediction.
-    """)
-
-
-# -----------------------------
-# TAB 2: Missing Value Analysis
-# -----------------------------
-with tab2:
-    selected_missing_viz = st.multiselect(
-    "Select Misisng Value Visualizations",
-    ["Missing values", "Analysis with Content content_type", "Missing Value Trend", "Conditional Probability"],
-    default=["Missing values"]
-)
-    if "Missing values" in selected_missing_viz:
-        
-    # --- Step 1: Calculate missing stats ---
-        missing_counts = netflix_df.isnull().sum()
-        missing_percent = (missing_counts / len(netflix_df)) * 100
-        present_percent = 100 - missing_percent
-
-        # Sort variables by % missing
-        sorted_vars = missing_percent.sort_values(ascending=False).index
-
-        # DataFrame for plotting
-        missing_df = pd.DataFrame({
-            "Variable": sorted_vars,
-            "Missing": missing_percent[sorted_vars].values,
-            "Present": present_percent[sorted_vars].values
-        })
-
-        # --- Step 2: Create stacked bar chart ---
-        fig_bar = go.Figure()
-
-        fig_bar.add_trace(go.Bar(
-            y=missing_df['Variable'],
-            x=missing_df['Present'],
-            orientation='h',
-            name='Present',
-            marker_color='#E50914'
-        ))
-
-        fig_bar.add_trace(go.Bar(
-            y=missing_df['Variable'],
-            x=missing_df['Missing'],
-            orientation='h',
-            name='Missing',
-            marker_color='#585858'
-        ))
-
-        fig_bar.update_layout(
-            barmode='stack',
-            title='Percentage of Missing Values',
-            xaxis_title='% of Values',
-            yaxis_title='Variable',
-            yaxis=dict(autorange='reversed')  # same as invert_yaxis
-        )
-
-        st.plotly_chart(fig_bar, use_container_width=True)
-        # --- Step 3: Create heatmap of missing values ---
-        # Convert boolean DataFrame to numeric (0 = present, 1 = missing)
-        missing_matrix = netflix_df[sorted_vars].isnull().astype(int).T
-
-        fig_heat = px.imshow(
-            missing_matrix,
-            color_continuous_scale=['#585858','#E50914'],
-            aspect='auto',
-            labels=dict(x="Row Number", y="Variable", color="Missing")
-        )
-
-        fig_heat.update_layout(
-            title='Missing Values in Rows',
-            xaxis=dict(tickmode='linear', tick0=0, dtick=200),  # adjust dtick as needed
-            coloraxis_showscale=False
-        )
-
-        st.plotly_chart(fig_heat, use_container_width=True)
-        st.markdown("From the above visualizations, we can observe that the **director** and **production_country** columns contain missing values.")
-
-    elif "Conditional Probability" in selected_missing_viz:
-    # Create cross-tab
-        crossbar_1 = pd.crosstab(netflix_df['director'].isna(), netflix_df['production_country'].isna())
-
-        # Convert index/columns to strings for better labels
-        crossbar_1.index = crossbar_1.index.map({False: 'Director Present', True: 'Director Missing'})
-        crossbar_1.columns = crossbar_1.columns.map({False: 'production_country Present', True: 'production_country Missing'})
-
-        # Plot interactive heatmap
-        fig = px.imshow(
-            crossbar_1,
-            text_auto=True,                  # show counts
-            color_continuous_scale='Reds',
-            labels=dict(x="production_country Null Status", y="Director Null Status", color="Count")
-        )
-
-        fig.update_layout(
-            title="Null Values Heatmap: Director vs production_country",
-            template='plotly_white',
-            xaxis_side='top'
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-
-        # Calculate probabilities
-        both_missing = netflix_df[(netflix_df['director'].isna()) & (netflix_df['production_country'].isna())].shape[0]
-        country_missing = netflix_df['production_country'].isna().sum()
-        director_missing = netflix_df['director'].isna().sum()
-
-        p_country_missing = np.round((country_missing / len(netflix_df)) * 100, 2)
-        p_director_given_country_missing = np.round((both_missing / country_missing) * 100, 2)
-        p_director_missing = np.round((director_missing / len(netflix_df)) * 100, 2)
-        p_country_given_director_missing = np.round((both_missing / director_missing) * 100, 2)
-
-        # Display in Streamlit
-        st.subheader("Conditional Probabilities for Missing Values")
-        st.markdown(f"- **P(production_country missing):** {p_country_missing} %")
-        st.markdown(f"- **P(Director missing | production_country missing):** {p_director_given_country_missing} %")
-        st.markdown(f"- **P(Director missing):** {p_director_missing} %")
-        st.markdown(f"- **P(production_country missing | Director missing):** {p_country_given_director_missing} %")
-
-        st.markdown("Overall, 7.05% of entries have missing production_country information. Among those entries with missing production_country, 46.66% also have missing director information. In comparison, 25.37% of all entries have missing director values. Conversely, for entries with missing director information, 12.96% have missing production_country values.")
-        st.markdown("Missing director values are much more likely when production_country information is missing, indicating a strong association between the two. However, missing production_country values are relatively uncommon even when director information is absent, suggesting that missingness in production_country is more independent.")
-        
-    elif "Analysis with Content content_type" in selected_missing_viz:
-
-    # --- Director Missing % ---
-        director_missing_counts = netflix_df[netflix_df['director'].isna()]['content_type'].value_counts()
-        director_missing_share = (director_missing_counts / director_missing_counts.sum()) * 100
-
-        types = director_missing_share.index
-        percentages = director_missing_share.values
-
-    # Assign colors based on content_type
-        colors = ['#E50914' if t == 'Movie' else '#585858' for t in types]
-
-        fig = go.Figure(go.Bar(
-            x=types,
-            y=percentages,
-            text=[f'{v:.2f}%' for v in percentages],
-            textposition='outside',
-            marker_color=colors
-        ))
-
-        fig.update_layout(
-            title='Director Missing % by Title content_type',
-            xaxis_title='Title content_type',
-            yaxis_title='Percentage (%)',
-            yaxis=dict(range=[0, max(percentages)*1.2]),
-            template='plotly_white'
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # --- production_country Missing % ---
-        country_missing_counts = netflix_df[netflix_df['production_country'].isna()]['content_type'].value_counts()
-        country_missing_share = (country_missing_counts / country_missing_counts.sum()) * 100
-
-        types = country_missing_share.index
-        percentages = country_missing_share.values
-
-        colors = ['#E50914' if t == 'Movie' else '#585858' for t in types]
-
-        fig = go.Figure(go.Bar(
-            x=types,
-            y=percentages,
-            text=[f'{v:.2f}%' for v in percentages],
-            textposition='outside',
-            marker_color=colors
-        ))
-
-        fig.update_layout(
-            title='production_country Missing % by Title content_type',
-            xaxis_title='Title content_type',
-            yaxis_title='Percentage (%)',
-            yaxis=dict(range=[0, max(percentages)*1.2]),
-            template='plotly_white'
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-
-        # --- Summary ---
-        st.markdown("**Summary:**")
-        st.markdown("- The majority of missing **director** values come from **TV Shows (94.85%)**, with a small portion from **Movies (5.15%)**. " \
-                    "Hence, missing directors are not missing completely at random (MCAR).")
-        st.markdown("- The missing values in the **production_country** column are distributed almost evenly between **Movies (51.04%)** and **TV Shows (48.96%)**.")
-
-
-    elif "Missing Value Trend" in selected_missing_viz: 
-        # --- Step 1: Calculate % missing by release_year and filter from 1945 ---
-        year_missing = netflix_df.groupby('release_year')['director'].apply(lambda x: x.isna().mean()*100)
-        year_missing = year_missing[year_missing.index >= 1945]
-
-        years = year_missing.index
-        percentages = year_missing.values
-
-        # --- Step 2: Create line chart (no markers) ---
-        fig = go.Figure(go.Scatter(
-            x=years,
-            y=percentages,
-            mode='lines',  # only line, no markers
-            line=dict(color='red', width=2)
-        ))
-
-        # --- Step 3: Layout ---
-        fig.update_layout(
-            title="Directors Missing % by Release Year",
-            xaxis_title="Release Year",
-            yaxis_title="Missing %",
-            yaxis=dict(range=[0, max(percentages)*1.2]),
-            template='plotly_white'
-        )
-
-        # --- Step 4: Display in Streamlit ---
-        st.plotly_chart(fig, use_container_width=True)
-
-        # --- Step 1: Calculate % missing by release_year and filter from 1945 ---
-        year_missing = netflix_df.groupby('release_year')['production_country'].apply(lambda x: x.isna().mean()*100)
-        year_missing = year_missing[year_missing.index >= 1945]
-
-        years = year_missing.index
-        percentages = year_missing.values
-
-        # --- Step 2: Create interactive line chart ---
-        fig = go.Figure(go.Scatter(
-            x=years,
-            y=percentages,
-            mode='lines',  # only line, no markers
-            line=dict(color='purple', width=2)
-        ))
-
-        # --- Step 3: Layout ---
-        fig.update_layout(
-            title="production_country Missing % by Release Year",
-            xaxis_title="Release Year",
-            yaxis_title="Missing %",
-            yaxis=dict(range=[0, max(percentages)*1.2]),
-            template='plotly_white',
-            height=400
-        )
-
-        # --- Step 4: Show in Streamlit ---
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown("**Director**")
-        st.markdown("- The missing values show notable spikes in the 1960s and 1970s, reaching up to around 40%. Between 1980 and 2000, missingness is more consistent and generally below 15%. From 2010 onward, there is a steady increase, culminating at approximately 43% missing by 2020")
-        st.markdown("**production_country**")
-        st.markdown("- production_country missing values are generally low, staying mostly below 10%, with brief spikes of 20–30% in the 1960s and 1980s. After 2000, missingness remains minimal until around 2020, when it rises sharply to about 30%.")
-       
-
-# -----------------------------
-# TAB 3: Exploring IMDb Ratings
-# -----------------------------
-with tab3:
-    st.header("Exploring IMDb Ratings")
-
-    selected_bi_viz = st.multiselect(
-        "Select Visualizations",
-        ["Votes vs IMDb content_rating", "Correlation","Hypothesis Testing"],
-        default=["Votes vs IMDb content_rating"]
+        <div class="hero-container">
+            <img class="hero-img" src="{NETFLIX_HERO_URL}">
+            <div class="hero-text">
+                Netflix Analytics Dashboard
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
 
-    if "Votes vs IMDb content_rating" in selected_bi_viz:
-        fig_votes_rating = px.scatter(
-            filtered_df, x='numVotes', y='IMDb_avg_rating',
-            color='content_type', size='numVotes',
-            color_discrete_map={'Movie':'#E50914','TV Show':'#585858'},
-            title='Number of Votes vs Average content_rating',
-            log_x=True, size_max=20, hover_data=['title','release_year']
-        )
-        st.plotly_chart(fig_votes_rating, use_container_width=True)
+with tab1:
 
-    elif "Correlation" in selected_bi_viz:
-        num_cols = ['release_year', 'episodes', 'runtime_mins','numVotes','IMDb_avg_rating']
-
-        # Compute correlation
-        corr = filtered_df[num_cols].corr().round(2)
-
-        # Create interactive heatmap
-        fig = px.imshow(
-            corr,
-            text_auto=True,              # show correlation values
-            color_continuous_scale='reds',
-            zmin=-1, zmax=1,             # correlation range
-            aspect="auto",
-            labels=dict(x="Features", y="Features", color="Correlation")
-        )
-
-        fig.update_layout(
-            title="Correlation Heatmap",
-            template='plotly_white',
-            xaxis=dict(side="top")       # show x-axis on top for better readability
-        )
-
-        st.plotly_chart(fig, use_container_width=True)
-        st.markdown('It can be seen that no two features are highly correlated')
-    
-    elif "Hypothesis Testing" in selected_bi_viz:
-        type_avg = filtered_df.groupby('content_type', as_index=False)['IMDb_avg_rating'].mean()
-
-        fig_bar = px.bar(
-            type_avg,
-            x='content_type',
-            y='IMDb_avg_rating',
-            color='content_type',
-            text='IMDb_avg_rating',
-            color_discrete_map={'Movie': '#E50914', 'TV Show': '#585858'},
-            title='Average IMDb content_rating by Title content_type'
-        )
-        fig_bar.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-        fig_bar.update_layout(template='plotly_white', showlegend=False, height=450)
-        st.plotly_chart(fig_bar, use_container_width=True)
-        
-        st.markdown("**TV Show** tend to have slightly higher average ratings than Movie, However **Movie** dominates majority of the content")
-        st.markdown("**Hypotheis Testing**")
-        movie_ratings = filtered_df[filtered_df['content_type'] == 'Movie']['IMDb_avg_rating'].dropna()
-        tv_ratings = filtered_df[filtered_df['content_type'] == 'TV Show']['IMDb_avg_rating'].dropna()
-        t_stat, p_two = ttest_ind(tv_ratings, movie_ratings, equal_var=False)
-        p_value = p_two / 2  # one-sided
-
-        if t_stat > 0 and p_value < 0.05:
-            st.markdown(f"**t_stat**: {t_stat}")
-            st.markdown(f"**p_value**: {p_value}")
-            st.markdown(f"Based on the t_stat and p_value values, Reject H₀ — TV Shows have higher IMDb ratings than Movies.")
-        else:
-            st.markdown(f"**t_stat**: {t_stat}")
-            st.markdown(f"**p_value**: {p_value}")
-            st.markdown(f"Based on the t_stat and p_value values, Fail to Reject H₀ — No strong evidence that TV Shows rate higher.")
-
-with tab4:
     df_dash = filtered_df.copy()
 
     # KPI metrics
@@ -481,13 +155,11 @@ with tab4:
 
   #  st.markdown("### 📊 Netflix Overview Dashboard")
 
-    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Titles", f"{total_titles:,}")
     c2.metric("Total Genres", f"{total_genres:,}")
     c3.metric("Total Ratings", f"{total_ratings:,}")
-    c4.metric("Start Year", f"{start_year}")
-    c5.metric("End Year", f"{end_year}")
-    c6.metric("Total Locations", f"{total_locations:,}")
+    c4.metric("Total Locations", f"{total_locations:,}")
     # ---------- Row 1: Genres (bar) | content_type donut | Ratings (bar)
     row1c1, row1c2, row1c3 = st.columns([1.2, 0.8, 1])
     # Genres by total titles (top 12)
@@ -580,117 +252,63 @@ with tab4:
 
     st.markdown("<small style='color: gray;'>Tip: Use the sidebar filters to refresh dashboard data dynamically.</small>", unsafe_allow_html=True)
 
-with tab5:
-    #st.markdown("## ⭐ IMDb Ratings Dashboard")
+with tab2:
 
-    df_dash = filtered_df.copy()
+    st.subheader("🎯 Data-Driven Netflix Success Insights")
 
-    # --- KPI SECTION ---
-    avg_rating = df_dash['IMDb_avg_rating'].mean().round(2)
-    max_row = df_dash.loc[df_dash['IMDb_avg_rating'].idxmax()]
-    min_row = df_dash.loc[df_dash['IMDb_avg_rating'].idxmin()]
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric("Average IMDb content_rating", f"{avg_rating:.2f}")
-
-    with col2:
-        st.metric("Highest IMDb content_rating", f"{max_row['IMDb_avg_rating']:.2f}")
-        st.caption(f"Genre: {max_row['genre']}")
-
-    with col3:
-        st.metric("Lowest IMDb content_rating", f"{min_row['IMDb_avg_rating']:.2f}")
-        st.caption(f"Genre: {min_row['genre']}")
+    insight = st.selectbox(
+        "Choose an Insight to Explore",
+        [
+            "🎮 Format Battle: Movies vs TV Shows",
+            "📈 How Have Ratings Evolved Over Time?",
+            "🎭 Genre Showdown: Who Wins the Ratings Race?",
+            "🌍 Global Content: Who Delivers the Best Hits?",
+            "⏱️ Does Length Make It Better?"
+        ],
+        index=0
+    )
     
-    row1c1, row1c2, row1c3 = st.columns([2.5, 2.5, 2.5])
-    with row1c1:
-           genre_df = filtered_df[['genre', 'content_type', 'IMDb_avg_rating']].dropna()
-           genre_type = genre_df.groupby('genre')['content_type'].first().reset_index()
+    # ---------------------------------------------------
+    # INSIGHT 1 — Movies vs TV Shows
+    # ---------------------------------------------------
+    if insight == "🎮 Format Battle: Movies vs TV Shows":
+        st.markdown("### Visualization")
 
-            # Merge with average content_rating
-           genre_avg = (
-                genre_df.groupby('genre')['IMDb_avg_rating']
-                .mean()
-                .reset_index()
-                .merge(genre_type, on='genre')
-            )
-           genre_avg_top10 = genre_avg.sort_values('IMDb_avg_rating', ascending=False).head(10)
-           fig_bar = px.bar(
-            genre_avg_top10,
-            x='IMDb_avg_rating',
-            y='genre',
-            orientation='h',
-            title="Top 10 Genres by Average IMDb content_rating",
-            labels={'IMDb_avg_rating': 'Average IMDb content_rating', 'genre': 'Genre', 'content_type':'Title content_type'},
-            color='content_type',  # color by title content_type
-            color_discrete_map={'Movie':'#585858', 'TV Show':'#E50914'}
+        fig1 = px.box(
+            filtered_df,
+            x="content_type",
+            y="IMDb_avg_rating",
+            color="content_type",
+            color_discrete_map={"Movie": "#E50914", "TV Show": "#585858"},
+            title="IMDb Ratings Distribution: Movies vs TV Shows",
         )
+        st.plotly_chart(fig1, use_container_width=True)
 
-           fig_bar.update_layout(
-            yaxis=dict(categoryorder='total ascending'),  # highest content_rating on top
-            height=500,
-            template='plotly_white',
-            title_font=dict(size=18, family='Arial', color='black'),
-            xaxis=dict(showgrid=True),
-        )
+        # Hypothesis Test
+        movies = filtered_df[filtered_df['content_type']=="Movie"]["IMDb_avg_rating"].dropna()
+        tv = filtered_df[filtered_df['content_type']=="TV Show"]["IMDb_avg_rating"].dropna()
+        t, p = stats.ttest_ind(tv, movies, equal_var=False)
+        d = (tv.mean() - movies.mean()) / filtered_df['IMDb_avg_rating'].std()
 
-           st.plotly_chart(fig_bar, use_container_width=True)
-    
-    with row1c2:
-        director_df = filtered_df[['tconst', 'director', 'IMDb_avg_rating']].drop_duplicates(subset=['tconst'])
+        with st.expander("Statistical Test Results"):
+            st.markdown("**t-test** — Comparing IMDb Ratings between Content Types")
+            st.write(f"• t-statistic: **{t:.2f}** ")
+            st.write(f"• p-value: **{p:.3e}**")
+            st.write(f"• Effect Size Cohen's d: **{d:.2f}**  → Medium Effect")
 
-        # Filter directors with at least 10 unique titles
-        director_counts = director_df['director'].value_counts()
-        top_directors = director_counts[director_counts >= 5].index
-        director_df = director_df[director_df['director'].isin(top_directors)]
-        director_df = director_df[director_df['director']!='Unknown']
+        st.markdown("### 🧠 Interpretation")
+        st.info("""The box plot shows that TV Shows have a slightly higher median IMDb rating than Movies, a difference that is statistically significant based on Welch’s t-test. 
+                    However, both formats contain numerous lower outliers, indicating  that format alone does not determine whether a title will become highly rated or poorly received.
+                """)
 
-        # Compute average content_rating per director
-        director_avg = (
-            director_df.groupby('director')['IMDb_avg_rating']
-            .mean()
-            .reset_index()
-            .sort_values('IMDb_avg_rating', ascending=False)
-            .head(10)
-        )
+        st.markdown("""### 🎬 Strategy Recommendation""")
+        st.success("""  ➡ Give episodic Originals a slight prioritization in future content planning
+                """)
 
-            # Lollipop chart
-        fig_lollipop = go.Figure()
-
-        # Add stems (lines)
-        fig_lollipop.add_trace(go.Scatter(
-            x=director_avg['IMDb_avg_rating'],
-            y=director_avg['director'],
-            mode='lines',
-            line=dict(color='#585858', width=2),
-            showlegend=False
-        ))
-
-        # Add markers (dots)
-        fig_lollipop.add_trace(go.Scatter(
-            x=director_avg['IMDb_avg_rating'],
-            y=director_avg['director'],
-            mode='markers+text',
-            marker=dict(size=12, color='#E50914'),
-            text=director_avg['IMDb_avg_rating'].round(2),
-            textposition='middle right',
-            name='Average content_rating'
-        ))
-
-        # Layout updates
-        fig_lollipop.update_layout(
-            title="Top 10 Directors of atleast 5 movies by Average IMDb content_rating",
-            xaxis_title="Average IMDb content_rating",
-            yaxis_title="Director",
-            template='plotly_white',
-            height=500,
-            yaxis=dict(categoryorder='total ascending'),  # highest content_rating on top
-            #legend=dict(title='Legend', y=1, x=1)
-        )
-
-        st.plotly_chart(fig_lollipop, use_container_width=True)
-    with row1c3:
+    # ---------------------------------------------------
+    # INSIGHT 2 — Popularity vs Quality
+    # ---------------------------------------------------
+    elif insight == "📈 How Have Ratings Evolved Over Time?":
         year_avg = filtered_df.groupby('release_year')['IMDb_avg_rating'].mean().reset_index()
 
         # Line chart without markers
@@ -714,166 +332,768 @@ with tab5:
         )
 
         st.plotly_chart(fig, use_container_width=True)
-    row2c1 = st.columns([1])[0]
-    with row2c1:
-        country_avg = (
-        filtered_df.groupby('production_country', as_index=False)['IMDb_avg_rating']
-        .mean()
-        .round(2)
+
+        st.markdown("---")
+        st.markdown("## Statistical Analysis — Trend Over Years")
+
+        # Remove years with very few titles
+        trend_data = year_avg[year_avg['IMDb_avg_rating'].notna()]
+
+        # Pearson correlation (linear trend strength)
+        r, p_value = stats.pearsonr(trend_data['release_year'], trend_data['IMDb_avg_rating'])
+
+        # Interpretation level
+        if abs(r) < 0.2:
+            impact_label = "Very Weak"
+        elif abs(r) < 0.4:
+            impact_label = "Weak"
+        elif abs(r) < 0.6:
+            impact_label = "Moderate"
+        else:
+            impact_label = "Strong"
+
+        # Display stats
+        with st.expander("Statistical Results"):
+            st.markdown("**Correlation Test — Ratings Over Time**")
+            st.write(f"• Pearson r: **{r:.2f}** → {impact_label} trend")
+
+        # Interpretation
+        st.markdown("### 🧠 Interpretation")
+        st.markdown("Release year does not meaningfully influence IMDb ratings.Content quality has remained consistently average-good, regardless of time period.")
+
+        # Strategy
+        st.markdown("### 🎬 Strategy Recommendation")
+        st.success(
+        """
+        ➡️ Ratings remain steady across decades. So, success depends more on what you make, not when you release it.
+        """
+        )
+
+    # ---------------------------------------------------
+    # INSIGHT 3 — Genre Performance
+    # ---------------------------------------------------
+    elif insight == "🎭 Genre Showdown: Who Wins the Ratings Race?":
+        st.markdown("### Visualization")
+
+        genre_df = filtered_df[['genre', 'content_type', 'IMDb_avg_rating']].dropna()
+        genre_type = genre_df.groupby('genre')['content_type'].first().reset_index()
+
+        # Merge with average content_rating
+        genre_avg = (
+            genre_df.groupby('genre')['IMDb_avg_rating']
+            .mean()
+            .reset_index()
+            .merge(genre_type, on='genre')
+        )
+        genre_avg_top10 = genre_avg.sort_values('IMDb_avg_rating', ascending=False).head(10)
+        fig_bar = px.bar(
+        genre_avg_top10,
+        x='IMDb_avg_rating',
+        y='genre',
+        orientation='h',
+        title="Top 10 Genres by Average IMDb content_rating",
+        labels={'IMDb_avg_rating': 'Average IMDb content_rating', 'genre': 'Genre', 'content_type':'Title content_type'},
+        color='content_type',  # color by title content_type
+        color_discrete_map={'Movie':'#585858', 'TV Show':'#E50914'}
     )
 
-    # Create the choropleth map
-        fig_map = px.choropleth(
-            country_avg,
-            locations='production_country',        # Column with production_country names
-            locationmode='country names', 
-            color='IMDb_avg_rating',      # Column to color by
-            hover_name='production_country',       # Show production_country on hover
-            color_continuous_scale=[(0, "#ffe5e5"), (1, "#ff0000")],
-            range_color=[0, 10],        # IMDb content_rating scale
-            labels={'IMDb_avg_rating': 'Avg IMDb content_rating'},
-            title='Average IMDb content_rating by production_country'
+        fig_bar.update_layout(
+        yaxis=dict(categoryorder='total ascending'),  # highest content_rating on top
+        height=500,
+        template='plotly_white',
+        title_font=dict(size=18, family='Arial', color='black'),
+        xaxis=dict(showgrid=True),
+    )
+
+        st.plotly_chart(fig_bar, use_container_width=True)
+
+# --------------------------------------------------
+# 🧪 Hypothesis Testing — One-Way ANOVA
+# --------------------------------------------------
+        genre_groups = [
+            group["IMDb_avg_rating"].dropna().values
+            for _, group in filtered_df.groupby("genre")
+            if len(group) >= 50
+        ]
+
+        f_stat, p_val = stats.f_oneway(*genre_groups)
+
+        grand_mean = filtered_df["IMDb_avg_rating"].mean()
+        ss_between = sum([
+            len(group) * (group["IMDb_avg_rating"].mean() - grand_mean) ** 2
+            for _, group in filtered_df.groupby("genre")
+            if len(group) >= 50
+        ])
+        ss_total = np.sum((filtered_df["IMDb_avg_rating"] - grand_mean) ** 2)
+        eta_sq = ss_between / ss_total
+
+        # Display ANOVA results in Streamlit
+        with st.expander("Statistical Test Results"):
+            st.markdown("**One-Way ANOVA** — Comparing IMDb Ratings Across Genres")
+            st.write(f"• F-Statistic: **{f_stat:.2f}**")
+            st.write(f"• p-value: **{p_val:.3e}**")
+            st.write(f"• Effect Size (η²): **{eta_sq:.2f}**  → Medium Effect")
+
+# --------------------------------------------------
+# 🧠 INTERPRETATION + STRATEGY
+# --------------------------------------------------
+        st.markdown("### 🧠 Interpretation")
+        st.info(
+            "Genres show **statistically significant** differences in IMDb ratings. "
+            "High-engagement genres like **Classic & Cult TV**, **Science & Nature TV**, and "
+            "**Anime Series** consistently outperform broader categories such as TV Dramas."
         )
 
-        fig_map.update_layout(
-            template='plotly_white',
-            margin=dict(l=20, r=20, t=50, b=20)
+        st.markdown("### 🎬 Strategy Recommendation")
+        st.success(
+            """
+        ➡️ Prioritize **specialized genres** where passionate audiences drive above-average ratings
+        """
         )
 
-        # Display in Streamlit
-        st.plotly_chart(fig_map, use_container_width=True)
-    row3c1 = st.columns([1])[0]
-    with row3c1:
-        rating_avg = filtered_df.groupby('content_rating')['IMDb_avg_rating'].mean().reset_index()
-        avg_values = np.round(rating_avg['IMDb_avg_rating'].values, 2)
+    # ---------------------------------------------------
+    # INSIGHT 4 — Country of Origin
+    # ---------------------------------------------------
+    elif insight == "🌍 Global Content: Who Delivers the Best Hits?":
 
-        # Create a heatmap using a single-row DataFrame
-        fig = px.imshow(
-            [avg_values],               # single row of values
-            x=rating_avg['content_rating'],     # Netflix content_rating categories
-            y=['Average IMDb content_rating'],  # label for row
-            text_auto=True,
-            aspect='auto',
-            color_continuous_scale='Reds',  # continuous color scale
-            range_color=[0, 10]
-        )   
-
-        # Layout updates
-    fig.update_layout(
-            title=dict(
-                text='Average IMDb content_rating by Netflix content_rating',
-                x=0.5,
-                xanchor='center',
-                yanchor='top',
-                #pad=dict(b=10)  # 👈 adds space (gap) between title & graph
-            ),
-            template='plotly_white',
-            height=300,
-            margin=dict(t=80, l=20, r=20, b=20),  # 👈 extra top margin for spacing
-            xaxis_title='Netflix content_rating',
-            yaxis_title='',
-            yaxis=dict(showticklabels=True),
-            title_font=dict(size=18, family='Arial', color='black')
+        country_df = (
+            filtered_df.groupby('production_country')['IMDb_avg_rating']
+            .agg(['mean', 'count'])
+            .reset_index()
         )
 
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown("Netflix content maintains a moderate IMDb content_rating around 6.4 and remained fairly stable over the decades, with classic and niche genres like “Classic & Cult TV” and “Science & Nature TV” performing the best. Directors such as Quentin Tarantino and Martin Scorsese consistently achieve the highest average ratings.production_country-wise variation exists, but no region stands out dramatically, and content ratings other than UR has an average IMDb content_rating close to 6.5.")
+        country_df = country_df[country_df['count'] >= 30]  # avoid unreliable small samples
+        top10 = country_df.sort_values('mean', ascending=False).head(10)
+
+        fig_top10 = px.bar(
+            top10,
+            x='mean',
+            y='production_country',
+            orientation='h',
+            color='mean',
+            color_continuous_scale='reds',
+            labels={'mean': 'Avg IMDb Rating'},
+            title='Top 10 Countries by IMDb Rating (≥30 Titles)'
+        )
+
+        fig_top10.update_layout(
+            template='plotly_dark',
+            height=450,
+            yaxis=dict(categoryorder='total ascending')
+        )
+
+        st.plotly_chart(fig_top10, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### Statistical Analysis — Country of Origin")
+
+        # One-Way ANOVA across countries (≥30 titles)
+        country_groups = [
+            group["IMDb_avg_rating"].dropna().values
+            for _, group in filtered_df.groupby("production_country")
+            if len(group) >= 30
+        ]
+
+        f_stat, p_val = stats.f_oneway(*country_groups)
+
+        # Effect Size — Eta Squared
+        grand_mean = filtered_df["IMDb_avg_rating"].mean()
+        ss_between = sum([
+            len(group) * (group['IMDb_avg_rating'].mean() - grand_mean) ** 2
+            for _, group in filtered_df.groupby("production_country")
+            if len(group) >= 30
+        ])
+        ss_total = np.sum((filtered_df["IMDb_avg_rating"] - grand_mean) ** 2)
+        eta_sq = ss_between / ss_total
+
+        # Display Results
+        with st.expander(" Statistical Results"):
+            st.markdown("**One-Way ANOVA — Differences Across Countries**")
+            st.write(f"• F-Statistic: **{f_stat:.2f}**")
+            st.write(f"• p-value: **< 0.001** (highly significant)")
+            st.write(f"• Effect Size (η²): **{eta_sq:.2f}** → Small-Medium")
+
+        # Interpretation
+        st.markdown("### 🧠 Interpretation")
+        st.info(
+            "Average ratings **differ significantly** between countries. "
+            "Successful markets like the **UK, France, and Japan** often deliver "
+            "highly-rated content, reflecting strong storytelling rooted in cultural identity."
+        )
+
+        # Business Strategy
+        st.markdown("### 🎬 Strategy Recommendation")
+        st.success(
+            """
+        ➡️ Increase collaborations with **high-performing international regions**  
+        ➡️ Empower local creators to preserve cultural authenticity  
+        ➡️ Boost global promotion of **international critical successes**  
+
+        📌 Country has a **meaningful**, yet smaller influence compared to genre.
+        """
+        )
     
-    st.markdown("<small style='color: gray;'>Tip: Use the sidebar filters to refresh dashboard data dynamically.</small>", unsafe_allow_html=True)
+    elif insight == "⏱️ Does Length Make It Better?":
 
-with tab6:
-    st.title("Find out which Movie or TV show performs well")
+        st.subheader("⏱️ Does Length Make It Better? (Runtime vs Rating)")
+
+        # ---- Separate Datasets ----
+        movies_df = filtered_df[filtered_df['content_type'] == 'Movie'].copy()
+        tv_df = filtered_df[filtered_df['content_type'] == 'TV Show'].copy()
+
+        # TV Shows → Total Runtime
+        tv_df['total_runtime_mins'] = tv_df['runtime_mins'] * tv_df['episodes']
+
+        # Movies → keep runtime column for consistency
+        movies_df['total_runtime_mins'] = movies_df['runtime_mins']
+
+        # Remove invalids
+        movies_df = movies_df.dropna(subset=['total_runtime_mins','IMDb_avg_rating'])
+        tv_df = tv_df.dropna(subset=['total_runtime_mins','IMDb_avg_rating'])
+
+        # ---- Layout ----
+        row1c1, row1c2 = st.columns(2)
+
+        # =======================
+        # 🎬 Chart 1 — MOVIES ONLY
+        # =======================
+        with row1c1:
+            fig_movie = px.scatter(
+                movies_df,
+                x="total_runtime_mins",
+                y="IMDb_avg_rating",
+                size="numVotes",
+                opacity=0.5,
+                trendline=None,  # avoid statsmodels dependency
+                hover_data=["title","release_year"],
+                color_discrete_sequence=['#E50914'],
+                title="Movies: Runtime vs IMDb Rating"
+            )
+            fig_movie.update_layout(template="plotly_white", height=400)
+            st.plotly_chart(fig_movie, use_container_width=True)
+
+            # Stats for Movies
+            from scipy.stats import pearsonr
+            r_m, p_m = pearsonr(movies_df['total_runtime_mins'], movies_df['IMDb_avg_rating'])
+
+            st.markdown(f"**Movies Correlation:** r = {r_m:.2f}, p = {p_m:.3e}")
+            st.info("Interpretation: Longer movies slightly perform better — but runtime alone isn’t a strong driver.")
+
+        # =======================
+        # 📺 Chart 2 — TV SHOWS ONLY
+        # =======================
+        with row1c2:
+            fig_tv = px.scatter(
+                tv_df,
+                x="total_runtime_mins",
+                y="IMDb_avg_rating",
+                size="numVotes",
+                opacity=0.5,
+                hover_data=["title","release_year"],
+                color_discrete_sequence=['#585858'],
+                title="TV Shows: Total Runtime vs IMDb Rating"
+            )
+            fig_tv.update_layout(template="plotly_white", height=400)
+            st.plotly_chart(fig_tv, use_container_width=True)
+
+            # Stats for TV Shows
+            r_t, p_t = pearsonr(tv_df['total_runtime_mins'], tv_df['IMDb_avg_rating'])
+
+            st.markdown(f"**TV Shows Correlation:** r = {r_t:.2f}, p = {p_t:.3e}")
+            st.info("Interpretation: Total runtime barely relates to rating — content quality is what keeps viewers watching.")
+
+        # =======================
+        # Business Strategy Output
+        # =======================
+        st.success("""
+        **Strategy Recommendation:**  
+        Let the story decide the runtime 🔥  
+        Focus on **engagement per minute**, not length inflation.
+        """)
+
+with tab3:
+
+    st.title("🎯 IMDb Rating Predictor")
+    st.markdown("### Build your content & predict how well it performs on IMDb!")
+    # =============================
+    # DATA ENCODING (same logic)
+    # =============================
+    
     country_freq = filtered_df['production_country'].value_counts(normalize=True)
     filtered_df['country_encoded'] = filtered_df['production_country'].map(country_freq)
 
     genre_freq = filtered_df['genre'].value_counts(normalize=True)
-    filtered_df['listed_in_encoded'] = filtered_df['genre'].map(genre_freq)
+    filtered_df['genre_encoded'] = filtered_df['genre'].map(genre_freq)
 
     filtered_df['original_rating'] = filtered_df['content_rating']
-    filtered_df = pd.get_dummies(filtered_df, columns=['content_rating'], prefix='content_rating')
-
+    filtered_df = pd.get_dummies(filtered_df, columns=['content_rating'], prefix='rating')
 
     global_mean = filtered_df['IMDb_avg_rating'].mean()
     director_mean = filtered_df.groupby('director')['IMDb_avg_rating'].mean()
-
     filtered_df['director_encoded'] = filtered_df['director'].map(director_mean).fillna(global_mean)
 
-    movies_df = filtered_df[filtered_df['content_type'] == 'Movie'].copy()
-    tv_df = filtered_df[filtered_df['content_type'] == 'TV Show'].copy()
+    # Handle runtime differences
+    movies_df = filtered_df[filtered_df['content_type']=="Movie"].copy()
+    movies_df['total_runtime'] = movies_df['runtime_mins']
+
+    tv_df = filtered_df[filtered_df['content_type']=="TV Show"].copy()
     tv_df['total_runtime'] = tv_df['runtime_mins'] * tv_df['episodes']
-    tv_df=tv_df.drop(columns=['runtime_mins','episodes'])
+    tv_df.drop(columns=['runtime_mins','episodes'], inplace=True)
 
-    # Columns for models
-    movie_features = ['country_encoded', 'listed_in_encoded', 'runtime_mins', 'director_encoded'] + \
-                    [col for col in filtered_df.columns if col.startswith('rating_')]
-
-    tv_features = ['country_encoded', 'listed_in_encoded', 'total_runtime', 'director_encoded'] + \
-                [col for col in filtered_df.columns if col.startswith('rating_')]
-
+    rating_cols = [c for c in filtered_df.columns if c.startswith("rating_")]
+    features = ['country_encoded','genre_encoded','total_runtime','director_encoded'] + rating_cols
     target = 'IMDb_avg_rating'
 
-    X_movie = movies_df[movie_features]
-    y_movie = movies_df[target]
 
-    X_train_m, X_test_m, y_train_m, y_test_m = train_test_split(X_movie, y_movie, test_size=0.2, random_state=42)
+    # =============================
+    # MODEL TRAINING
+    # =============================
+    def train_models(df):
+        X = df[features]
+        y = df[target]
+        X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,random_state=42)
 
-    rf_movie = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf_movie.fit(X_train_m, y_train_m)
-    y_pred_rf_m = rf_movie.predict(X_test_m)
+        lr = LinearRegression().fit(X_train,y_train)
+        lr_pred = lr.predict(X_test)
 
-    X_tv = tv_df[tv_features]
-    y_tv = tv_df[target]
+        rf = RandomForestRegressor(n_estimators=120, random_state=42).fit(X_train,y_train)
+        rf_pred = rf.predict(X_test)
 
-    X_train_t, X_test_t, y_train_t, y_test_t = train_test_split(X_tv, y_tv, test_size=0.2, random_state=42)
+        return {
+            "Linear Regression 😎": (lr, root_mean_squared_error(y_test, lr_pred), r2_score(y_test, lr_pred)),
+            "Random Forest 🤖": (rf, root_mean_squared_error(y_test, rf_pred), r2_score(y_test, rf_pred))
+        }
 
-    rf_tv = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf_tv.fit(X_train_t, y_train_t)
-    y_pred_rf_t = rf_tv.predict(X_test_t)
+    movie_models = train_models(movies_df)
+    tv_models = train_models(tv_df)
 
-    content_type = st.selectbox("Select content_type", ["Movie", "TV Show"])
+    # =============================
+    # ① BUILD YOUR CONTENT
+    # =============================
 
-    if content_type == "Movie":
-        model = rf_movie
-        rmse_val = root_mean_squared_error(y_test_m, y_pred_rf_m)
-        r2_val = r2_score(y_test_m, y_pred_rf_m)
-        runtime_label = "Runtime (Minutes)"
+    content_type = st.selectbox("Choose Title Type", ["Movie 🍿", "TV Show 📺"])
+
+    country_input = st.selectbox("🎯 Production Country", sorted(filtered_df['production_country'].dropna().unique()))
+    genre_input = st.selectbox("🎭 Genre", sorted(filtered_df['genre'].dropna().unique()))
+    director_input = st.selectbox("🎬 Director", sorted(filtered_df['director'].dropna().unique()))
+    rating_input = st.selectbox("🔞 Content Rating", sorted(filtered_df['original_rating'].dropna().unique()))
+
+    runtime_input = st.slider(
+        "⏱️ Total Runtime (Minutes)",
+        min_value=20, max_value=700,
+        value=100, step=10
+    )
+
+    st.divider()
+
+    # =============================
+    # ② MODEL LEADERBOARD 🏆
+    # =============================
+    st.header("🏆 Prediction Model Leaderboard")
+
+    col1, col2 = st.columns(2)
+
+    if "Movie" in content_type:
+        sel_model_dict = movie_models
+        section = col1
+        rival_section = col2
+        section.header("🍿 Movie Models")
+        for model_name, (_, rmse, r2) in movie_models.items():
+            section.metric(model_name, f"RMSE: {rmse:.3f}", f"R²: {r2:.3f}")
+        col2.header("📺 TV Models (Not Used)")
+        col2.caption("You're building a Movie!")
     else:
-        model = rf_tv
-        rmse_val = root_mean_squared_error(y_test_t, y_pred_rf_t)
-        r2_val = r2_score(y_test_t, y_pred_rf_t)
-        runtime_label = "Total Minutes"
+        sel_model_dict = tv_models
+        section = col1
+        rival_section = col2
+        section.header("📺 TV Show Models")
+        for model_name, (_, rmse, r2) in tv_models.items():
+            section.metric(model_name, f"RMSE: {rmse:.3f}", f"R²: {r2:.3f}")
+        col2.header("🍿 Movie Models (Not Used)")
+        col2.caption("You're building a TV Show!")
 
-    st.header("Criteria Filters")
+    st.divider()
 
-    country_input = st.selectbox("production_country", sorted(filtered_df['production_country'].dropna().unique()))
-    genre_input = st.selectbox("Genre", sorted(filtered_df['genre'].dropna().unique()))
-    director_input = st.selectbox("Director", sorted(filtered_df['director'].dropna().unique()))
-    rating_input = st.selectbox("Content content_rating", sorted(filtered_df['original_rating'].unique()))
-    runtime_val = st.number_input(runtime_label, min_value=1, max_value=5000, value=100)
+    # =============================
+    # ③ CHOOSE YOUR PREDICTION BRAIN
+    # =============================
+    st.header("🧠 Choose Model for Prediction")
+    selected_model = st.selectbox("Prediction Engine", list(sel_model_dict.keys()))
 
-    st.header("Model Performance")
-    st.metric("RMSE", f"{rmse_val:.3f}")
-    st.metric("R² Score", f"{r2_val:.3f}")
+    model = sel_model_dict[selected_model][0]
 
-    st.header("Predict IMDb rating")
+    # =============================
+    # ④ PREDICT!
+    # =============================
+    if st.button("🚀 Predict IMDb Rating"):
+        input_vec = [
+            country_freq.get(country_input, 0),
+            genre_freq.get(genre_input, 0),
+            runtime_input,
+            director_mean.get(director_input, global_mean)
+        ]
 
-    if st.button("Predict"):
-        country_encoded = country_freq.get(country_input, 0)
-        genre_encoded = genre_freq.get(genre_input, 0)
-        director_encoded = director_mean.get(director_input, global_mean)
+        encoded = [0] * len(rating_cols)
+        rc = f"rating_{rating_input}"
+        if rc in rating_cols:
+            encoded[rating_cols.index(rc)] = 1
 
-        rating_encoded_cols = {col: 0 for col in filtered_df.columns if col.startswith('rating_')}
-        rating_col_name = f"rating_{rating_input}"
-        if rating_col_name in rating_encoded_cols:
-            rating_encoded_cols[rating_col_name] = 1
+        input_vec.extend(encoded)
 
-        input_vector = [country_encoded, genre_encoded, runtime_val, director_encoded] + list(rating_encoded_cols.values())
+        prediction = model.predict([input_vec])[0]
 
-        prediction = model.predict([input_vector])[0]
-        st.success(f"⭐ Predicted IMDb rating: {prediction:.2f}")
+        st.success(f"⭐ Your Title’s Predicted IMDb Rating: **{prediction:.2f}**")
+
+        if prediction >= 7.0:
+            st.balloons()
+            st.markdown("🎉 **Hit Show Alert! Potential Netflix TOP-10 Trending!**")
+        elif prediction >= 6.0:
+            st.markdown("👍 **Respectably Binge-worthy! The fans will appreciate it.**")
+        else:
+            st.markdown("😬 **Might get buried deep in the catalog…**")
+
+    #Feature Importamce:
+    # Define features & target
+
+    filtered_df['total_runtime'] = filtered_df.apply(
+    lambda row: row['runtime_mins'] if row['content_type'] == "Movie"
+    else (row['episodes'] * row['runtime_mins'] if pd.notna(row['episodes']) else np.nan),
+    axis=1
+    )
+
+    features=['country_encoded','genre_encoded','total_runtime','director_encoded']
+
+    X = filtered_df[features]
+    y = filtered_df['IMDb_avg_rating']
+
+    # Train Model
+    rf_model = RandomForestRegressor(n_estimators=250, random_state=42)
+    rf_model.fit(X, y)
+
+    # Feature Importance
+    importance = pd.Series(rf_model.feature_importances_, index=features)
+    importance_sorted = importance.sort_values(ascending=True)
+
+    # Plot
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=importance_sorted.values,
+        y=importance_sorted.index,
+        orientation='h',
+        marker=dict(color='red')
+    ))
+
+    fig.update_layout(
+        title="Feature Importance for IMDb Rating Prediction",
+        xaxis_title="Importance Score",
+        yaxis_title="Features",
+        template="plotly_white",
+        height=400
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.info("- IMDb success on Netflix is director-driven — audience trust in creators strongly influences how a title is rated.")
+    st.info("- All other factors like runtime, genre, and country play supporting but limited roles.")
+
+with tab4:
+
+    selected_missing_viz = st.selectbox(
+    "Choose an Visualization to Explore Missingness",
+    [
+        "Missing values",
+        "Analysis with Content content_type",
+        "Missing Value Trend",
+        "Conditional Probability"
+    ],
+    index=0
+)
+
+    if "Missing values" in selected_missing_viz:
+        
+    # --- Step 1: Calculate missing stats ---
+        missing_counts = netflix_df.isnull().sum()
+        missing_percent = (missing_counts / len(netflix_df)) * 100
+        present_percent = 100 - missing_percent
+
+        # Sort variables by % missing
+        sorted_vars = missing_percent.sort_values(ascending=False).index
+
+        # DataFrame for plotting
+        missing_df = pd.DataFrame({
+            "Variable": sorted_vars,
+            "Missing": missing_percent[sorted_vars].values,
+            "Present": present_percent[sorted_vars].values
+        })
+
+        # --- Step 2: Create stacked bar chart ---
+        fig_bar = go.Figure()
+
+        fig_bar.add_trace(go.Bar(
+            y=missing_df['Variable'],
+            x=missing_df['Present'],
+            orientation='h',
+            name='Present',
+            marker_color='#E50914'
+        ))
+
+        fig_bar.add_trace(go.Bar(
+            y=missing_df['Variable'],
+            x=missing_df['Missing'],
+            orientation='h',
+            name='Missing',
+            marker_color='#585858'
+        ))
+
+        fig_bar.update_layout(
+            barmode='stack',
+            title='Percentage of Missing Values',
+            xaxis_title='% of Values',
+            yaxis_title='Variable',
+            yaxis=dict(autorange='reversed')  # same as invert_yaxis
+        )
+
+        st.plotly_chart(fig_bar, use_container_width=True)
+        # --- Step 3: Create heatmap of missing values ---
+        # Convert boolean DataFrame to numeric (0 = present, 1 = missing)
+        missing_matrix = netflix_df[sorted_vars].isnull().astype(int).T
+
+        fig_heat = px.imshow(
+            missing_matrix,
+            color_continuous_scale=['#585858','#E50914'],
+            aspect='auto',
+            labels=dict(x="Row Number", y="Variable", color="Missing")
+        )
+
+        fig_heat.update_layout(
+            title='Missing Values in Rows',
+            xaxis=dict(tickmode='linear', tick0=0, dtick=200),  # adjust dtick as needed
+            coloraxis_showscale=False
+        )
+
+        st.plotly_chart(fig_heat, use_container_width=True)
+        st.info("From the above visualizations, we can observe that the **director** and **production_country** columns contain missing values.")
+
+    elif "Conditional Probability" in selected_missing_viz:
+    # Create cross-tab
+        crossbar_1 = pd.crosstab(netflix_df['director'].isna(), netflix_df['production_country'].isna())
+
+        # Convert index/columns to strings for better labels
+        crossbar_1.index = crossbar_1.index.map({False: 'Director Present', True: 'Director Missing'})
+        crossbar_1.columns = crossbar_1.columns.map({False: 'production_country Present', True: 'production_country Missing'})
+
+        # Plot interactive heatmap
+        fig = px.imshow(
+            crossbar_1,
+            text_auto=True,                  # show counts
+            color_continuous_scale='Reds',
+            labels=dict(x="production_country Null Status", y="Director Null Status", color="Count")
+        )
+
+        fig.update_layout(
+            title="Null Values Heatmap: Director vs production_country",
+            template='plotly_white',
+            xaxis_side='top'
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
 
 
+        # Calculate probabilities
+        both_missing = netflix_df[(netflix_df['director'].isna()) & (netflix_df['production_country'].isna())].shape[0]
+        country_missing = netflix_df['production_country'].isna().sum()
+        director_missing = netflix_df['director'].isna().sum()
+
+        p_country_missing = np.round((country_missing / len(netflix_df)) * 100, 2)
+        p_director_given_country_missing = np.round((both_missing / country_missing) * 100, 2)
+        p_director_missing = np.round((director_missing / len(netflix_df)) * 100, 2)
+        p_country_given_director_missing = np.round((both_missing / director_missing) * 100, 2)
+
+        # Display in Streamlit
+        st.subheader("Conditional Probabilities for Missing Values")
+        st.markdown(f"- **P(production_country missing):** {p_country_missing} %")
+        st.markdown(f"- **P(Director missing | production_country missing):** {p_director_given_country_missing} %")
+        st.markdown(f"- **P(Director missing):** {p_director_missing} %")
+        st.markdown(f"- **P(production_country missing | Director missing):** {p_country_given_director_missing} %")
+
+        st.info("Overall, 7.05% of entries have missing production_country information. Among those entries with missing production_country, 46.66% also have missing director information. In comparison, 25.37% of all entries have missing director values. Conversely, for entries with missing director information, 12.96% have missing production_country values.")
+        st.info("Missing director values are much more likely when production_country information is missing, indicating a strong association between the two. However, missing production_country values are relatively uncommon even when director information is absent, suggesting that missingness in production_country is more independent.")
+        
+    elif "Analysis with Content content_type" in selected_missing_viz:
+
+    # --- Director Missing % ---
+        director_missing_counts = netflix_df[netflix_df['director'].isna()]['content_type'].value_counts()
+        director_missing_share = (director_missing_counts / director_missing_counts.sum()) * 100
+
+        types = director_missing_share.index
+        percentages = director_missing_share.values
+
+    # Assign colors based on content_type
+        colors = ['#E50914' if t == 'Movie' else '#585858' for t in types]
+
+        fig = go.Figure(go.Bar(
+            x=types,
+            y=percentages,
+            text=[f'{v:.2f}%' for v in percentages],
+            textposition='outside',
+            marker_color=colors
+        ))
+
+        fig.update_layout(
+            title='Director Missing % by Title content_type',
+            xaxis_title='Title content_type',
+            yaxis_title='Percentage (%)',
+            yaxis=dict(range=[0, max(percentages)*1.2]),
+            template='plotly_white'
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- production_country Missing % ---
+        country_missing_counts = netflix_df[netflix_df['production_country'].isna()]['content_type'].value_counts()
+        country_missing_share = (country_missing_counts / country_missing_counts.sum()) * 100
+
+        types = country_missing_share.index
+        percentages = country_missing_share.values
+
+        colors = ['#E50914' if t == 'Movie' else '#585858' for t in types]
+
+        fig = go.Figure(go.Bar(
+            x=types,
+            y=percentages,
+            text=[f'{v:.2f}%' for v in percentages],
+            textposition='outside',
+            marker_color=colors
+        ))
+
+        fig.update_layout(
+            title='production_country Missing % by Title content_type',
+            xaxis_title='Title content_type',
+            yaxis_title='Percentage (%)',
+            yaxis=dict(range=[0, max(percentages)*1.2]),
+            template='plotly_white'
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Summary ---
+        st.markdown("**Summary:**")
+        st.info("- The majority of missing **director** values come from **TV Shows (94.85%)**, with a small portion from **Movies (5.15%)**. " \
+                    "Hence, missing directors are not missing completely at random (MCAR).")
+        st.info("- The missing values in the **production_country** column are distributed almost evenly between **Movies (51.04%)** and **TV Shows (48.96%)**.")
 
 
+    elif "Missing Value Trend" in selected_missing_viz: 
+        # --- Step 1: Calculate % missing by release_year and filter from 1945 ---
+        year_missing = netflix_df.groupby('release_year')['director'].apply(lambda x: x.isna().mean()*100)
+        year_missing = year_missing[year_missing.index >= 1945]
 
+        years = year_missing.index
+        percentages = year_missing.values
+
+        # --- Step 2: Create line chart (no markers) ---
+        fig = go.Figure(go.Scatter(
+            x=years,
+            y=percentages,
+            mode='lines',  # only line, no markers
+            line=dict(color='red', width=2)
+        ))
+
+        # --- Step 3: Layout ---
+        fig.update_layout(
+            title="Directors Missing % by Release Year",
+            xaxis_title="Release Year",
+            yaxis_title="Missing %",
+            yaxis=dict(range=[0, max(percentages)*1.2]),
+            template='plotly_white'
+        )
+
+        # --- Step 4: Display in Streamlit ---
+        st.plotly_chart(fig, use_container_width=True)
+
+        # --- Step 1: Calculate % missing by release_year and filter from 1945 ---
+        year_missing = netflix_df.groupby('release_year')['production_country'].apply(lambda x: x.isna().mean()*100)
+        year_missing = year_missing[year_missing.index >= 1945]
+
+        years = year_missing.index
+        percentages = year_missing.values
+
+        # --- Step 2: Create interactive line chart ---
+        fig = go.Figure(go.Scatter(
+            x=years,
+            y=percentages,
+            mode='lines',  # only line, no markers
+            line=dict(color='purple', width=2)
+        ))
+
+        # --- Step 3: Layout ---
+        fig.update_layout(
+            title="production_country Missing % by Release Year",
+            xaxis_title="Release Year",
+            yaxis_title="Missing %",
+            yaxis=dict(range=[0, max(percentages)*1.2]),
+            template='plotly_white',
+            height=400
+        )
+
+        # --- Step 4: Show in Streamlit ---
+        st.plotly_chart(fig, use_container_width=True)
+        st.markdown("**Director**")
+        st.info("- The missing values show notable spikes in the 1960s and 1970s, reaching up to around 40%. Between 1980 and 2000, missingness is more consistent and generally below 15%. From 2010 onward, there is a steady increase, culminating at approximately 43% missing by 2020")
+        st.info("**production_country**")
+        st.info("- production_country missing values are generally low, staying mostly below 10%, with brief spikes of 20–30% in the 1960s and 1980s. After 2000, missingness remains minimal until around 2020, when it rises sharply to about 30%.")
+
+with tab5:
+
+    rows, cols = filtered_df.shape
+
+    st.subheader("🧹 Data Preprocessing Overview")
+    if filtered_df.empty:
+        avg_rating = 0  # or np.nan if you prefer
+    else:
+        avg_rating = filtered_df['IMDb_avg_rating'].mean().round(2)
+
+    # --- KPI Section ---
+    st.markdown("### 📊 Dataset Summary")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Rows", f"{rows:,}")
+    col2.metric("Columns", f"{cols}")
+    col3.metric("Avg IMDb rating ⭐", f"{avg_rating}")
+
+
+    st.markdown("The aim of this project is to perform an in-depth exploratory data analysis (EDA) and predictive modeling on Netflix IMDb datasets to uncover insights into content trends and audience preferences. To acheive my aim, I have used Netflix and IMDb datasets.")
+    st.header("Data Overview")
+    st.write("Netflix dataset")
+    st.dataframe(netflix_df.head(5))
+    st.write("IMDb basics dataset")
+    st.dataframe(imdb_basics_df.head(5))
+    st.write("IMDb ratings dataset")
+    st.dataframe(imdb_ratings_df.head(5))
+    st.write("Dataset after merging")
+    st.dataframe(filtered_df.head(5))
+    st.subheader("🧹 Data Preprocessing Overview")
+
+    st.markdown("""
+    ### Steps Performed During Data Preprocessing
+
+    1. **Exploded Multi-Valued Columns**  
+    - Columns such as *directors*, *genre* (genres), and *production_country* often contained multiple comma-separated values.  
+    - These were **exploded** into separate rows to enable accurate aggregation and analysis.
+
+    2. **Split the Duration Column**  
+    - The *duration* column included both **minutes** (for movies) and **seasons** (for TV shows).  
+    - It was split into two new columns:  
+        - `duration_min` → for movie durations (in minutes)  
+        - `duration_seasons` → for TV show lengths (in seasons)
+
+    3. **Merged Multiple Datasets**  
+    - Three datasets were combined to create a unified and enriched Netflix dataset:  
+        - `netflix_titles.csv` (content metadata)  
+        - `IMDb_basics.csv` (movie/TV show identifiers)  
+        - `IMDb_ratings.csv` (average ratings and vote counts)  
+    - The merge was performed using the **IMDb title ID (tconst)**, **title** and **Release Year** to integrate metadata and ratings.
+
+    These preprocessing steps ensured data consistency, completeness, and accuracy for further analysis and IMDb content_rating prediction.
+    """)
 
