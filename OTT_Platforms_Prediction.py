@@ -152,7 +152,7 @@ with tab1:
     end_year = int(df_dash['release_year'].max()) if not df_dash.empty else 0
     total_locations = int(df_dash['production_country'].nunique()) if not df_dash.empty else 0
 
-  #  st.markdown("### 📊 Netflix Overview Dashboard")
+  #  st.markdown("### Netflix Overview Dashboard")
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Titles", f"{total_titles:,}")
@@ -253,18 +253,18 @@ with tab1:
 
 with tab2:
 
-    st.subheader("🎯 Data-Driven Netflix Success Insights")
+    st.subheader("Data-Driven Netflix Success Insights")
 
     insight = st.selectbox(
         "Choose an Insight to Explore",
         [
-            "🎮 Format Battle: Movies vs TV Shows",
-            "📈 How Have Ratings Evolved Over Time?",
-            "🎭 Genre Showdown: Who Wins the Ratings Race?",
-            "🌍 Global Content: Who Delivers the Best Hits?",
-            "🎬 Director Impact: Who Delivers Netflix’s Best Content?",
-            "⭐ Audience Love: Ratings vs Popularity",
-            "⏱️ Does Length Make It Better?"
+            "Format Battle: Movies vs TV Shows",
+            "How Have Ratings Evolved Over Time?",
+            "Genre Showdown: Who Wins the Ratings Race?",
+            "Global Content: Who Delivers the Best Hits?",
+            "Director Impact: Who Delivers Netflix’s Best Content?",
+            "Audience Love: Ratings vs Popularity",
+            "Does Length Make It Better?"
         ],
         index=0
     )
@@ -272,7 +272,7 @@ with tab2:
     # ---------------------------------------------------
     # INSIGHT 1 — Movies vs TV Shows
     # ---------------------------------------------------
-    if insight == "🎮 Format Battle: Movies vs TV Shows":
+    if insight == "Format Battle: Movies vs TV Shows":
         st.markdown("### Visualization")
 
         fig1 = px.box(
@@ -297,19 +297,19 @@ with tab2:
             st.write(f"• p-value: **{p:.3e}**")
             st.write(f"• Effect Size Cohen's d: **{d:.2f}**  → Medium Effect")
 
-        st.markdown("### 🧠 Interpretation")
+        st.markdown("### Interpretation")
         st.info("""The box plot shows that TV Shows have a slightly higher median IMDb rating than Movies, a difference that is statistically significant based on Welch’s t-test. 
                     However, both formats contain numerous lower outliers, indicating  that format alone does not determine whether a title will become highly rated or poorly received.
                 """)
 
-        st.markdown("""### 🎬 Strategy Recommendation""")
+        st.markdown("""### Strategy Recommendation""")
         st.success("""  ➡ Give episodic Originals a slight prioritization in future content planning
                 """)
 
     # ---------------------------------------------------
     # INSIGHT 2 — Popularity vs Quality
     # ---------------------------------------------------
-    elif insight == "📈 How Have Ratings Evolved Over Time?":
+    elif insight == "How Have Ratings Evolved Over Time?":
         year_avg = filtered_df.groupby('release_year')['IMDb_avg_rating'].mean().reset_index()
 
         # Line chart without markers
@@ -359,11 +359,11 @@ with tab2:
             st.write(f"• Pearson r: **{r:.2f}** → {impact_label} trend")
 
         # Interpretation
-        st.markdown("### 🧠 Interpretation")
+        st.markdown("### Interpretation")
         st.markdown("Release year does not meaningfully influence IMDb ratings.Content quality has remained consistently average-good, regardless of time period.")
 
         # Strategy
-        st.markdown("### 🎬 Strategy Recommendation")
+        st.markdown("### Strategy Recommendation")
         st.success(
         """
         ➡️ Ratings remain steady across decades. So, success depends more on what you make, not when you release it.
@@ -373,7 +373,7 @@ with tab2:
     # ---------------------------------------------------
     # INSIGHT 3 — Genre Performance
     # ---------------------------------------------------
-    elif insight == "🎭 Genre Showdown: Who Wins the Ratings Race?":
+    elif insight == "Genre Showdown: Who Wins the Ratings Race?":
         st.markdown("### Visualization")
 
         genre_df = filtered_df[['genre', 'content_type', 'IMDb_avg_rating']].dropna()
@@ -409,7 +409,7 @@ with tab2:
         st.plotly_chart(fig_bar, use_container_width=True)
 
 # --------------------------------------------------
-# 🧪 Hypothesis Testing — One-Way ANOVA
+# Hypothesis Testing — One-Way ANOVA
 # --------------------------------------------------
         genre_groups = [
             group["IMDb_avg_rating"].dropna().values
@@ -436,16 +436,16 @@ with tab2:
             st.write(f"• Effect Size (η²): **{eta_sq:.2f}**  → Medium Effect")
 
 # --------------------------------------------------
-# 🧠 INTERPRETATION + STRATEGY
+# INTERPRETATION + STRATEGY
 # --------------------------------------------------
-        st.markdown("### 🧠 Interpretation")
+        st.markdown("### Interpretation")
         st.info(
             "Genres show **statistically significant** differences in IMDb ratings. "
             "High-engagement genres like **Classic & Cult TV**, **Science & Nature TV**, and "
             "**Anime Series** consistently outperform broader categories such as TV Dramas."
         )
 
-        st.markdown("### 🎬 Strategy Recommendation")
+        st.markdown("### Strategy Recommendation")
         st.success(
             """
         ➡️ Prioritize **specialized genres** where passionate audiences drive above-average ratings
@@ -455,7 +455,7 @@ with tab2:
     # ---------------------------------------------------
     # INSIGHT 4 — Country of Origin
     # ---------------------------------------------------
-    elif insight == "🌍 Global Content: Who Delivers the Best Hits?":
+    elif insight == "Global Content: Who Delivers the Best Hits?":
 
         country_df = (
             filtered_df.groupby('production_country')['IMDb_avg_rating']
@@ -515,14 +515,14 @@ with tab2:
             st.write(f"• Effect Size (η²): **{eta_sq:.2f}** → Small-Medium")
 
         # Interpretation
-        st.markdown("### 🧠 Interpretation")
+        st.markdown("### Interpretation")
         st.info(
             "Average ratings differ between countries. "
             "Successful markets like the **Paraguay,Japan and Sweden** often deliver highly-rated content, reflecting strong storytelling rooted in cultural identity."
         )
 
         # Business Strategy
-        st.markdown("### 🎬 Strategy Recommendation")
+        st.markdown("### Strategy Recommendation")
         st.success(
             """
         ➡️ Increase collaborations with **high-performing international regions**  
@@ -533,9 +533,9 @@ with tab2:
         """
         )
     
-    elif insight == "⏱️ Does Length Make It Better?":
+    elif insight == "Does Length Make It Better?":
 
-        st.subheader("⏱️ Does Length Make It Better? (Runtime vs Rating)")
+        st.subheader("Does Length Make It Better? (Runtime vs Rating)")
 
         # ---- Separate Datasets ----
         movies_df = filtered_df[filtered_df['content_type'] == 'Movie'].copy()
@@ -555,7 +555,7 @@ with tab2:
         row1c1, row1c2 = st.columns(2)
 
         # =======================
-        # 🎬 Chart 1 — MOVIES ONLY
+        # Chart 1 — MOVIES ONLY
         # =======================
         with row1c1:
             fig_movie = px.scatter(
@@ -580,7 +580,7 @@ with tab2:
             st.info("Interpretation: Longer movies slightly perform better — but runtime alone isn’t a strong driver.")
 
         # =======================
-        # 📺 Chart 2 — TV SHOWS ONLY
+        # Chart 2 — TV SHOWS ONLY
         # =======================
         with row1c2:
             fig_tv = px.scatter(
@@ -607,18 +607,18 @@ with tab2:
         # =======================
         st.success("""
         **Strategy Recommendation:**  
-        Let the story decide the runtime 🔥  
+        Let the story decide the runtime  
         Focus on **engagement per minute**, not length inflation.
         """)
 
     elif insight == "🎬 Director Impact: Who Delivers Netflix’s Best Content?":
 
     # ===========================
-    # ⭐ Director Performance Insight (≥10 Titles)
+    # Director Performance Insight (≥10 Titles)
     # ===========================
 
         st.markdown("---")
-        st.subheader("🎬 Director Power Rankings")
+        st.subheader("Director Power Rankings")
 
         # Filter directors with ≥10 titles
         director_df = (
@@ -656,10 +656,10 @@ with tab2:
         for d in top_directors:
             mean_val = director_df.loc[director_df['director']==d,'mean'].values[0]
             count = director_df.loc[director_df['director']==d,'count'].values[0]
-            st.markdown(f"🎯 **{d}** — Avg Rating: **{mean_val:.2f}** | Titles: {count}")
+            st.markdown(f" **{d}** — Avg Rating: **{mean_val:.2f}** | Titles: {count}")
 
         # Interpretation
-        st.markdown("### 🧠 Interpretation")
+        st.markdown("### Interpretation")
         st.info("""
         Directors with strong reputations tend to deliver **more consistent audience satisfaction**.
         Some directors show **high median ratings with wide variability**, meaning they take risks
@@ -667,16 +667,16 @@ with tab2:
         """)
 
         # Strategy Recommendation
-        st.markdown("### 🎬 Strategy Recommendation")
+        st.markdown("### Strategy Recommendation")
         st.success("""
         ➡ Invest in **proven directors** who consistently exceed audience expectations  
         ➡ Track directors with **high variance** — they may deliver the next breakout hit 🎯  
         """)
 
 
-    elif insight == "⭐ Audience Love: Ratings vs Popularity":
+    elif insight == "Audience Love: Ratings vs Popularity":
 
-        st.subheader("⭐ Audience Love: Ratings vs Popularity (Votes vs IMDb Rating)")
+        st.subheader("Audience Love: Ratings vs Popularity (Votes vs IMDb Rating)")
 
         fig_votes = px.scatter(
             filtered_df,
@@ -705,24 +705,24 @@ with tab2:
         st.plotly_chart(fig_votes, use_container_width=True)
 
         # ===========================
-        # 📊 Statistical Analysis
+        # Statistical Analysis
         # ===========================
         r_v, p_v = stats.pearsonr(
             filtered_df['numVotes'], filtered_df['IMDb_avg_rating']
         )
 
-        with st.expander("📌 Statistical Results"):
+        with st.expander("Statistical Results"):
             st.write(f"• Pearson r: **{r_v:.2f}** → Moderate Positive Relationship")
             st.write(f"• p-value: **< 0.001** → Statistically Significant")
 
-        st.markdown("### 🧠 Interpretation")
+        st.markdown("### Interpretation")
         st.info("""
         - Titles with higher IMDb ratings **generally receive more votes**
         - But high votes do **not always** mean high quality (e.g., hyped shows)
         - Some hidden gems have **high rating but low exposure**
         """)
 
-        st.markdown("### 🎬 Strategy Recommendation")
+        st.markdown("### Strategy Recommendation")
         st.success("""
         ➡ Boost marketing for **high-rated but under-watched** titles  
         ➡ Strongly rated movies attract audiences faster than TV shows  
@@ -731,7 +731,7 @@ with tab2:
 
 with tab3:
 
-    st.title("🎯 IMDb Rating Predictor")
+    st.title("IMDb Rating Predictor")
     st.markdown("### Build your content & predict how well it performs on IMDb!")
 
     # =============================
@@ -791,11 +791,11 @@ with tab3:
             X, y, test_size=0.20, random_state=42
         )
 
-        # 1️⃣ Linear Regression
+        # Linear Regression
         lr = LinearRegression().fit(X_train, y_train)
         lr_pred = lr.predict(X_test)
 
-        # 2️⃣ Random Forest
+        # Random Forest
         rf = RandomForestRegressor(n_estimators=200, random_state=42).fit(X_train, y_train)
         rf_pred = rf.predict(X_test)
 
@@ -847,7 +847,7 @@ with tab3:
     # =============================
     # ② Model Leaderboard Display
     # =============================
-    st.header("🏆 Model Leaderboard")
+    st.header("Model Leaderboard")
 
     col1, col2 = st.columns(2)
 
@@ -874,7 +874,7 @@ with tab3:
     # =============================
     # ③ PREDICTION ENGINE SELECTOR
     # =============================
-    st.header("🧠 Choose Model for Prediction")
+    st.header("Choose Model for Prediction")
     selected_model = st.selectbox("Prediction Engine",
                                   list(sel_models.keys()))
     model = sel_models[selected_model][0]
@@ -882,7 +882,7 @@ with tab3:
     # =============================
     # ④ MAKE PREDICTION
     # =============================
-    if st.button("🚀 Predict IMDb Rating"):
+    if st.button("Predict IMDb Rating"):
         input_vec = [
             country_freq.get(country_input, 0),
             genre_freq.get(genre_input, 0),
@@ -898,7 +898,7 @@ with tab3:
         input_vec.extend(encoded)
 
         prediction = float(model.predict([input_vec])[0])
-        st.success(f"⭐ Predicted IMDb Rating: **{prediction:.2f}**")
+        st.success(f"Predicted IMDb Rating: **{prediction:.2f}**")
 
         if prediction >= 7.0:
             st.balloons()
@@ -962,7 +962,7 @@ with tab4:
                 avg_rating = filtered_df['IMDb_avg_rating'].mean().round(2)
 
             # --- KPI Section ---
-            st.markdown("### 📊 Dataset Summary")
+            st.markdown("### Dataset Summary")
             col1, col2, col3 = st.columns(3)
             col1.metric("Rows", f"{rows:,}")
             col2.metric("Columns", f"{cols}")
@@ -979,7 +979,7 @@ with tab4:
             st.dataframe(imdb_ratings_df.head(5))
             st.write("Dataset after merging")
             st.dataframe(filtered_df.head(5))
-            st.subheader("🧹 Data Preprocessing Overview")
+            st.subheader("Data Preprocessing Overview")
 
             st.markdown("""
             ### Steps Performed During Data Preprocessing
@@ -1235,7 +1235,7 @@ with tab4:
         
         elif "Imputation" in data_handling_viz:
             
-            st.header("🧩 Imputation Strategy")
+            st.header("Imputation Strategy")
 
             st.subheader("Director")
             st.info("Missing directors were mostly from TV Shows (~95%), indicating non-random missingness. To preserve authenticity, used IMDb Web Services dataset to fill these values with actual director names instead of statistical approach.")
@@ -1292,4 +1292,5 @@ with tab4:
         - It preserves both **variance** and **relationship with IMDb rating**, unlike Mode.  
         - It produces more stable estimates than a KNN in sparse regions.
         """)
+
 
