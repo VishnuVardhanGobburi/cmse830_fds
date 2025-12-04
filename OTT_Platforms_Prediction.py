@@ -1422,9 +1422,10 @@ with tab4:
                     """)
 
                     st.subheader("Data After applying Feature Engineering")
-                    st.writer("Movies dataset")
+                    st.write("Movies dataset")
                     st.dataframe(movies_df.head(5))
                     st.dataframe(tv_df.head(5))
+
 
 
 
