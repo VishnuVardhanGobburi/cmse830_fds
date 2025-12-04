@@ -813,7 +813,7 @@ with tab3:
     tv_models = train_models(tv_df)
 
     # =============================
-    # ① USER INPUT AREA
+    # USER INPUT AREA
     # =============================
     st.header("🎬 Build Your Content")
 
@@ -848,7 +848,7 @@ with tab3:
     # =============================
     # ② Model Leaderboard Display
     # =============================
-    st.header("Model Leaderboard")
+    st.subheader("Model Leaderboard")
 
     col1, col2 = st.columns(2)
 
@@ -875,7 +875,7 @@ with tab3:
     # =============================
     # ③ PREDICTION ENGINE SELECTOR
     # =============================
-    st.header("Choose Model for Prediction")
+    st.subheader("Choose Model for Prediction")
     selected_model = st.selectbox("Prediction Engine",
                                   list(sel_models.keys()))
     model = sel_models[selected_model][0]
@@ -914,7 +914,7 @@ with tab3:
     # =============================
     # FEATURE IMPORTANCE (RF only)
     # =============================
-    st.header("💡 What Drives IMDb Success?")
+    st.subheader("💡 What Drives IMDb Success?")
 
     rf_model = RandomForestRegressor(n_estimators=200, random_state=42)
     rf_model.fit(filtered_df_modelling[features], filtered_df_modelling[target])
@@ -1426,6 +1426,7 @@ with tab4:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
