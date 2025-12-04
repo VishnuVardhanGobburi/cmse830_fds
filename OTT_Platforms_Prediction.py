@@ -1423,8 +1423,9 @@ with tab4:
 
                     st.subheader("Data After applying Feature Engineering")
                     st.write("Movies dataset")
-                    st.dataframe(movies_df.head(5))
-                    st.dataframe(tv_df.head(5))
+                    st.dataframe(movies_df[:,8:].head(5))
+                    st.dataframe(tv_df[:,8:].head(5))
+
 
 
 
