@@ -1292,5 +1292,68 @@ with tab4:
         - It preserves both **variance** and **relationship with IMDb rating**, unlike Mode.  
         - It produces more stable estimates than a KNN in sparse regions.
         """)
+            st.subheader("After Imputation")
+            
+            missing_counts_ni = netflix_imdb_df.isnull().sum()
+            missing_percent_ni = (missing_counts_ni / len(netflix_df)) * 100
+            present_percent_ni = 100 - missing_percent_ni
+
+            # Sort variables by % missing
+            sorted_vars_ni = missing_percent_ni.sort_values(ascending=False).index
+
+            # DataFrame for plotting
+            missing_df = pd.DataFrame({
+                "Variable": sorted_vars_ni,
+                "Missing": missing_percent_ni[sorted_vars_ni].values,
+                "Present": present_percent_ni[sorted_vars_ni].values
+            })
+
+            # --- Step 2: Create stacked bar chart ---
+            fig_bar = go.Figure()
+
+            fig_bar.add_trace(go.Bar(
+                y=missing_df['Variable'],
+                x=missing_df['Present'],
+                orientation='h',
+                name='Present',
+                marker_color='#E50914'
+            ))
+
+            fig_bar.add_trace(go.Bar(
+                y=missing_df['Variable'],
+                x=missing_df['Missing'],
+                orientation='h',
+                name='Missing',
+                marker_color='#585858'
+            ))
+
+            fig_bar.update_layout(
+                barmode='stack',
+                title='Percentage of Missing Values',
+                xaxis_title='% of Values',
+                yaxis_title='Variable',
+                yaxis=dict(autorange='reversed')  # same as invert_yaxis
+            )
+
+            st.plotly_chart(fig_bar, use_container_width=True)
+            # --- Step 3: Create heatmap of missing values ---
+            # Convert boolean DataFrame to numeric (0 = present, 1 = missing)
+            missing_matrix = netflix_imdb_df[sorted_vars_ni].isnull().astype(int).T
+
+            fig_heat = px.imshow(
+                missing_matrix,
+                color_continuous_scale=['#E50914','#585858'],
+                aspect='auto',
+                labels=dict(x="Row Number", y="Variable", color="Missing")
+            )
+
+            fig_heat.update_layout(
+                title='Missing Values in Rows',
+                xaxis=dict(tickmode='linear', tick0=0, dtick=200),  # adjust dtick as needed
+                coloraxis_showscale=False
+            )
+
+            st.plotly_chart(fig_heat, use_container_width=True)
+
 
 
