@@ -1421,10 +1421,12 @@ with tab4:
                     Separate models avoid forcing a single global relationship and improve accuracy.
                     """)
 
-                    st.subheader("Data After applying Feature Engineering")
+                    st.subheader("Data After applying feature engineering techniques")
                     st.write("Movies dataset")
                     st.dataframe(movies_df.iloc[:,9:].head(5))
+                    st.write("Movies dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
