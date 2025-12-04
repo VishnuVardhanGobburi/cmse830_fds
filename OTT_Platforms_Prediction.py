@@ -1401,7 +1401,7 @@ with tab4:
                     
                     Unknown directors receive the **global IMDb mean**.  
 
-                    **Why Target Encoding?**
+                     #### ✔ Why Target Encoding?
                     Unlike directors, countries and genres do not represent skill-based continuity, so their average ratings are not reliable signals and would cause leakage if target encoded.
                     ---
         
@@ -1425,6 +1425,7 @@ with tab4:
                     st.write("Movies dataset")
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
