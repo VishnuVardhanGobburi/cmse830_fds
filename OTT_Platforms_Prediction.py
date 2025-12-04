@@ -1424,8 +1424,9 @@ with tab4:
                     st.subheader("Data After applying feature engineering techniques")
                     st.write("Movies dataset")
                     st.dataframe(movies_df.iloc[:,9:].head(5))
-                    st.write("Movies dataset")
+                    st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
