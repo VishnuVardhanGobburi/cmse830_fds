@@ -815,7 +815,7 @@ with tab3:
     # =============================
     # USER INPUT AREA
     # =============================
-    st.header("🎬 Build Your Content")
+    st.subheader("🎬 Build Your Content")
 
     content_type_in = st.selectbox("Select Title Type",
                                    ["Movie 🍿", "TV Show 📺"])
@@ -1426,6 +1426,7 @@ with tab4:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
