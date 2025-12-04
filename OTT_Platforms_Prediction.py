@@ -274,7 +274,7 @@ with tab2:
     # INSIGHT 1 — Movies vs TV Shows
     # ---------------------------------------------------
     if insight == "Format Battle: Movies vs TV Shows":
-        st.markdown("### Visualization")
+        st.markdown("#### Movies vs TV Shows")
 
         fig1 = px.box(
             filtered_df,
@@ -298,12 +298,12 @@ with tab2:
             st.write(f"• p-value: **{p:.3e}**")
             st.write(f"• Effect Size Cohen's d: **{d:.2f}**  → Medium Effect")
 
-        st.markdown("### Interpretation")
+        st.markdown("#### Interpretation")
         st.info("""The box plot shows that TV Shows have a slightly higher median IMDb rating than Movies, a difference that is statistically significant based on Welch’s t-test. 
                     However, both formats contain numerous lower outliers, indicating  that format alone does not determine whether a title will become highly rated or poorly received.
                 """)
 
-        st.markdown("""### Strategy Recommendation""")
+        st.markdown("""#### Strategy Recommendation""")
         st.success("""  ➡ Give episodic Originals a slight prioritization in future content planning
                 """)
 
@@ -336,7 +336,7 @@ with tab2:
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("## Statistical Analysis — Trend Over Years")
+        st.markdown("#### Statistical Analysis — Trend Over Years")
 
         # Remove years with very few titles
         trend_data = year_avg[year_avg['IMDb_avg_rating'].notna()]
@@ -360,11 +360,11 @@ with tab2:
             st.write(f"• Pearson r: **{r:.2f}** → {impact_label} trend")
 
         # Interpretation
-        st.markdown("### Interpretation")
+        st.markdown("#### Interpretation")
         st.markdown("Release year does not meaningfully influence IMDb ratings.Content quality has remained consistently average-good, regardless of time period.")
 
         # Strategy
-        st.markdown("### Strategy Recommendation")
+        st.markdown("#### Strategy Recommendation")
         st.success(
         """
         ➡️ Ratings remain steady across decades. So, success depends more on what you make, not when you release it.
@@ -375,7 +375,7 @@ with tab2:
     # INSIGHT 3 — Genre Performance
     # ---------------------------------------------------
     elif insight == "Genre Showdown: Who Wins the Ratings Race?":
-        st.markdown("### Visualization")
+        st.markdown("#### Genre Performance")
 
         genre_df = filtered_df[['genre', 'content_type', 'IMDb_avg_rating']].dropna()
         genre_type = genre_df.groupby('genre')['content_type'].first().reset_index()
@@ -439,14 +439,14 @@ with tab2:
 # --------------------------------------------------
 # INTERPRETATION + STRATEGY
 # --------------------------------------------------
-        st.markdown("### Interpretation")
+        st.markdown("#### Interpretation")
         st.info(
             "Genres show **statistically significant** differences in IMDb ratings. "
             "High-engagement genres like **Classic & Cult TV**, **Science & Nature TV**, and "
             "**Anime Series** consistently outperform broader categories such as TV Dramas."
         )
 
-        st.markdown("### Strategy Recommendation")
+        st.markdown("#### Strategy Recommendation")
         st.success(
             """
         ➡️ Prioritize **specialized genres** where passionate audiences drive above-average ratings
@@ -487,7 +487,7 @@ with tab2:
         st.plotly_chart(fig_top10, use_container_width=True)
 
         st.markdown("---")
-        st.markdown("### Statistical Analysis — Country of Origin")
+        st.markdown("#### Statistical Analysis — Country of Origin")
 
         # One-Way ANOVA across countries (≥30 titles)
         country_groups = [
@@ -516,14 +516,14 @@ with tab2:
             st.write(f"• Effect Size (η²): **{eta_sq:.2f}** → Small-Medium")
 
         # Interpretation
-        st.markdown("### Interpretation")
+        st.markdown("#### Interpretation")
         st.info(
             "Average ratings differ between countries. "
             "Successful markets like the **Paraguay,Japan and Sweden** often deliver highly-rated content, reflecting strong storytelling rooted in cultural identity."
         )
 
         # Business Strategy
-        st.markdown("### Strategy Recommendation")
+        st.markdown("#### Strategy Recommendation")
         st.success(
             """
         ➡️ Increase collaborations with **high-performing international regions**  
@@ -606,8 +606,8 @@ with tab2:
         # =======================
         # Business Strategy Output
         # =======================
-        st.success("""
-        **Strategy Recommendation:**  
+        st.markdown("#### Strategy Recommendation")
+        st.success(""" 
         Let the story decide the runtime  
         Focus on **engagement per minute**, not length inflation.
         """)
@@ -660,7 +660,7 @@ with tab2:
             st.markdown(f" **{d}** — Avg Rating: **{mean_val:.2f}** | Titles: {count}")
 
         # Interpretation
-        st.markdown("### Interpretation")
+        st.markdown("#### Interpretation")
         st.info("""
         Directors with strong reputations tend to deliver **more consistent audience satisfaction**.
         Some directors show **high median ratings with wide variability**, meaning they take risks
@@ -668,7 +668,7 @@ with tab2:
         """)
 
         # Strategy Recommendation
-        st.markdown("### Strategy Recommendation")
+        st.markdown("#### Strategy Recommendation")
         st.success("""
         ➡ Invest in **proven directors** who consistently exceed audience expectations  
         ➡ Track directors with **high variance** — they may deliver the next breakout hit 🎯  
@@ -716,14 +716,14 @@ with tab2:
             st.write(f"• Pearson r: **{r_v:.2f}** → Moderate Positive Relationship")
             st.write(f"• p-value: **< 0.001** → Statistically Significant")
 
-        st.markdown("### Interpretation")
+        st.markdown("#### Interpretation")
         st.info("""
         - Titles with higher IMDb ratings **generally receive more votes**
         - But high votes do **not always** mean high quality (e.g., hyped shows)
         - Some hidden gems have **high rating but low exposure**
         """)
 
-        st.markdown("### Strategy Recommendation")
+        st.markdown("#### Strategy Recommendation")
         st.success("""
         ➡ Boost marketing for **high-rated but under-watched** titles  
         ➡ Strongly rated movies attract audiences faster than TV shows  
@@ -733,7 +733,7 @@ with tab2:
 with tab3:
 
     st.title("IMDb Rating Predictor")
-    st.markdown("### Build your content & predict how well it performs on IMDb!")
+    st.markdown("#### Build your content & predict how well it performs on IMDb!")
 
     # =============================
     # DATA ENCODING & CLEANING
@@ -1426,6 +1426,7 @@ with tab4:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
