@@ -25,7 +25,6 @@ st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 netflix_imdb_df = pd.read_csv("netflix_imdb_transformed.csv")
 #netflix_imdb_df=netflix_imdb_df.rename(columns={'type':'content_type', 'country':'production_country','rating':'content_rating','listed_in':'genre','TV Show_duration':'episodes','runtimeMinutes':'runtime_mins','averageRating':'IMDb_avg_rating'})
 netflix_imdb_df = netflix_imdb_df.loc[:, ~netflix_imdb_df.columns.str.contains('^Unnamed')]
-netflix_imdb_df=netflix_imdb_df.drop(columns=['runtime_mins'])
 netflix_df=pd.read_csv('netflix_titles.csv', usecols=['title','type','director','country','release_year','rating','duration','listed_in'])
 netflix_df=netflix_df.rename(columns={'type':'content_type', 'country':'production_country','rating':'content_rating','listed_in':'genre','TV Show_duration':'episodes'})
 netflix_df['director'] = netflix_df['director'].str.split(', ')
@@ -944,6 +943,7 @@ with tab3:
 
 with tab4:
     
+        netflix_imdb_df=netflix_imdb_df.drop(columns=['runtime_mins'])
         data_handling_viz = st.selectbox(
         "Choose a type of data handling to explore ",
         [
@@ -1356,6 +1356,7 @@ with tab4:
             )
 
             st.plotly_chart(fig_heat, use_container_width=True)
+
 
 
 
