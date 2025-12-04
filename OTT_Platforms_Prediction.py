@@ -801,10 +801,10 @@ with tab3:
         rf_pred = rf.predict(X_test)
 
         return {
-            "Linear Regression 😎": (lr,
+            "Linear Regression": (lr,
                                     root_mean_squared_error(y_test, lr_pred),
                                     r2_score(y_test, lr_pred)),
-            "Random Forest 🤖": (rf,
+            "Random Forest": (rf,
                                  root_mean_squared_error(y_test, rf_pred),
                                  r2_score(y_test, rf_pred))
         }
@@ -1359,7 +1359,7 @@ with tab4:
             st.plotly_chart(fig_heat, use_container_width=True)
 
         elif "Feature Engineering" in data_handling_viz:
-                    st.subheader("🧩 Feature Engineering Overview")
+                    st.subheader("Feature Engineering Overview")
         
                     st.markdown("""
                     To build a predictive model capable of understanding audience preferences and IMDb rating behavior, 
@@ -1367,7 +1367,7 @@ with tab4:
         
                     ---
         
-                    ## **1️⃣ Total Runtime (Standardizing Content Length)**  
+                    ### **Total Runtime (Standardizing Content Length)**  
                     Movies and TV shows originally represented length differently (minutes vs. seasons).  
                     To make runtime comparable:
         
@@ -1378,7 +1378,7 @@ with tab4:
         
                     ---
         
-                    ## **2️⃣ Frequency Encoding for Country & Genre**  
+                    ### **Frequency Encoding for Country & Genre**  
                     `production_country` and `genre` contain many unique categories.  
                     One-hot encoding would create hundreds of sparse columns.
         
@@ -1387,43 +1387,31 @@ with tab4:
                     - `country_encoded = frequency of that country`
                     - `genre_encoded = frequency of that genre`
         
-                    ### ✔ Why this is useful?
-                    - Avoids huge one-hot matrices  
-                    - Captures “mainstream vs niche” categories  
-                    - Reflects real-world exposure patterns (common genres/countries behave differently)
-        
                     ---
         
-                    ## **3️⃣ Content Rating One-Hot Encoding**  
+                    ### **Content Rating One-Hot Encoding**  
                     Ratings like **TV-MA, PG-13, TV-14** are *nominal*, not numeric.  
                     To avoid implying false order (TV-MA > TV-14), **one-hot encoding** was applied.
         
-                    ### ✔ Why?
-                    - Prevents incorrect numeric relationships  
-                    - Lets the model learn separate effects of each maturity rating
-        
                     ---
         
-                    ## **4️⃣ Director Quality Encoding (Target Encoding)**  
+                    ### **Director Encoding (Target Encoding)**  
                     There are thousands of directors (extreme cardinality).  
                     To avoid one-hot encoding, the **mean IMDb rating per director** was computed:
                     
-                    Unknown directors receive the **global IMDb mean**.
-        
-                    ### ✔ Why?
-                    - Captures director “reputation”  
-                    - Directors with strong track records get higher scores  
-                    - Highly predictive for viewer expectations and ratings
-        
+                    Unknown directors receive the **global IMDb mean**.  
+
+                    **Why Target Encoding?**
+                    Unlike directors, countries and genres do not represent skill-based continuity, so their average ratings are not reliable signals and would cause leakage if target encoded.
                     ---
         
-                    ## **5️⃣ Separate Models for Movies & TV Shows**  
+                    ### **Separate Models for Movies & TV Shows**  
                     After all transformations, the dataset was split:
         
                     - **Movie Model**
                     - **TV Show Model**
         
-                    ### ✔ Why?
+                    #### ✔ Why?
                     Movies and TV Shows behave differently in:
                     - runtime patterns  
                     - audience engagement  
@@ -1431,20 +1419,13 @@ with tab4:
                     - director influence  
         
                     Separate models avoid forcing a single global relationship and improve accuracy.
-        
-                    ---
-        
-                    ### ⭐ **Overall Benefit**
-                    These engineered features convert raw metadata into meaningful numeric signals that help the model answer questions like:
-        
-                    - Do longer titles get higher ratings?  
-                    - Do certain genres consistently score better?  
-                    - Does a director’s past performance affect ratings?  
-                    - Do maturity ratings matter?  
-                    - Do certain countries consistently produce better content?  
-        
-                    Together, these features create a dataset that is both **machine-learning-ready** and **aligned with real Netflix domain intuition**.
                     """)
+
+                    st.subheader("Data After applying Feature Engineering")
+                    st.writer("Movies dataset")
+                    st.dataframe(movies_df.head(5))
+                    st.dataframe(tv_df.head(5))
+
 
 
 
