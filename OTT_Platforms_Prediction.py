@@ -209,7 +209,7 @@ with tab1:
     - **Imputation results (Mode vs KNN vs MICE)**
     - **Feature engineering logic**
 
-    ---
+    """)
     
 
 with tab2:
@@ -1465,6 +1465,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
