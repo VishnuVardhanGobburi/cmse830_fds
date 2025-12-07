@@ -152,7 +152,6 @@ with tab1:
     - Missing value analysis and imputation
     - Feature engineering
     - Building separate Machine Learning models for Movies and TV Shows
-    - Deploying an interactive IMDb Rating Prediction App
 
     ---
 
@@ -1464,6 +1463,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
