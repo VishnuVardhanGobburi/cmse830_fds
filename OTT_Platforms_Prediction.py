@@ -146,19 +146,19 @@ with tab1:
 
     st.markdown("""
     ### **Goal of the Project:**
-    The primary goal of this project is to **predict the IMDb rating of new Netflix content** using data from both **Netflix** and **IMDb** sources.  
+    The primary goal of this project is to predict the IMDb rating of new Netflix content using data from both Netflix and IMDb sources.  
     This involves performing:
-    - Advanced **data preprocessing**
-    - **Missing value analysis** and imputation
-    - **Feature engineering**
-    - Building separate **Machine Learning models** for Movies and TV Shows
-    - Deploying an interactive **IMDb Rating Prediction App**
+    - Advanced data preprocessing
+    - Missing value analysis and imputation
+    - Feature engineering
+    - Building separate Machine Learning models for Movies and TV Shows
+    - Deploying an interactive IMDb Rating Prediction App
 
     ---
 
-    ## **What Each Tab Does**
+    ### **What Each Tab Does**
 
-    ### **Title Analysis**
+    #### **Title Analysis**
     Explore Netflix titles using dynamic filters.
     Includes:
     - Genre distribution  
@@ -167,18 +167,18 @@ with tab1:
     - Timeline of releases  
     - Interactive KPIs  
 
-    Helps understand **how content is distributed**.
+    Helps understand how content is distributed.
 
     ---
 
-    ### **Netflix Content Success Analysis**
+    #### **Netflix Content Success Analysis**
     In-depth, insight-driven analytics including:
-    - **Movies vs TV Shows rating comparison**
-    - **Rating trends over time**
-    - **Genre performance**
-    - **Country-wise success patterns**
-    - **Director influence**
-    - **Popularity vs quality**
+    - Movies vs TV Shows rating comparison
+    - Rating trends over time
+    - Genre performance
+    - Country-wise success patterns
+    - Director influence
+    - Popularity vs quality
 
     This tab answers questions like:
     - “Do TV shows perform better than movies?”
@@ -187,26 +187,26 @@ with tab1:
 
     ---
 
-    ### **Predict IMDb Rating**
+    #### **Predict IMDb Rating**
     This is the core ML component.
     
     - Input your content attributes  
     - Choose model type (Linear Regression or Random Forest)  
     - Predict IMDb rating instantly  
-    - Movie models and TV models handled **separately**  
+    - Movie models and TV models handled separately
     - Shows model leaderboard (RMSE, R²)
 
-    Designed for **simulation, experimentation, and decision-making**.
+    Designed for simulation, experimentation, and decision-making.
 
     ---
 
-    ### **Data Handling**
+    #### **Data Handling**
     Tells about how the dataset was cleaned and transformed.
 
-    - **Pre-processing steps**
-    - **Missingness analysis (MCAR/MAR patterns)**
-    - **Imputation results (Mode vs KNN vs MICE)**
-    - **Feature engineering logic**
+    - Pre-processing steps
+    - Missingness analysis (MCAR/MAR patterns)
+    - Imputation results (Mode vs KNN vs MICE)
+    - Feature engineering logic
 
     """)
     
@@ -1464,6 +1464,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
