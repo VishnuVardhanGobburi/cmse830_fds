@@ -142,10 +142,10 @@ with tab0:
     )
 
 with tab1:
-    st.title("Project Instructions & Overview")
+    st.subheader("Project Instructions & Overview")
 
     st.markdown("""
-    ## **Goal of the Project:**
+    ### **Goal of the Project:**
     The primary goal of this project is to **predict the IMDb rating of new Netflix content**  
     using metadata from both **Netflix** and **IMDb**.  
     This involves performing:
@@ -1465,6 +1465,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
