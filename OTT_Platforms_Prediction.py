@@ -673,69 +673,6 @@ with tab3:
         Focus on **engagement per minute**, not length inflation.
         """)
 
-    elif insight == "🎬 Director Impact: Who Delivers Netflix’s Best Content?":
-
-    # ===========================
-    # Director Performance Insight (≥10 Titles)
-    # ===========================
-
-        st.markdown("---")
-        st.subheader("Director Power Rankings")
-
-        # Filter directors with ≥10 titles
-        director_df = (
-            filtered_df.groupby('director')['IMDb_avg_rating']
-            .agg(['mean', 'count'])
-            .reset_index()
-        )
-        director_df = director_df[director_df['count'] >= 20]
-
-        # Sort top 10 by avg rating
-        top_directors = director_df.sort_values('mean', ascending=False).head(5)['director'].tolist()
-
-        df_top10_dir = filtered_df[filtered_df['director'].isin(top_directors)]
-
-        fig_dir_box = px.box(
-            df_top10_dir,
-            x="director",
-            y="IMDb_avg_rating",
-            color="director",
-            title="Top 5 Directors (≥20 Titles) — IMDb Rating Distribution",
-            labels={'director': 'Director', 'IMDb_avg_rating': 'IMDb Rating'},
-            color_discrete_sequence=px.colors.qualitative.Set1
-        )
-
-        fig_dir_box.update_layout(
-            template="plotly_dark",
-            xaxis_tickangle=-45,
-            showlegend=False,
-            height=500
-        )
-
-        st.plotly_chart(fig_dir_box, use_container_width=True)
-
-        # Mean markers
-        for d in top_directors:
-            mean_val = director_df.loc[director_df['director']==d,'mean'].values[0]
-            count = director_df.loc[director_df['director']==d,'count'].values[0]
-            st.markdown(f" **{d}** — Avg Rating: **{mean_val:.2f}** | Titles: {count}")
-
-        # Interpretation
-        st.markdown("#### Interpretation")
-        st.info("""
-        Directors with strong reputations tend to deliver **more consistent audience satisfaction**.
-        Some directors show **high median ratings with wide variability**, meaning they take risks
-        — sometimes they win big, sometimes they flop.
-        """)
-
-        # Strategy Recommendation
-        st.markdown("#### Strategy Recommendation")
-        st.success("""
-        ➡ Invest in **proven directors** who consistently exceed audience expectations  
-        ➡ Track directors with **high variance** — they may deliver the next breakout hit 🎯  
-        """)
-
-
     elif insight == "Audience Love: Ratings vs Popularity":
 
         st.subheader("Audience Love: Ratings vs Popularity (Votes vs IMDb Rating)")
@@ -1455,6 +1392,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
