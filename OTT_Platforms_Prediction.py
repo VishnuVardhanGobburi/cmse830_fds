@@ -164,7 +164,6 @@ with tab1:
     - Content rating breakdown  
     - Geography-based visuals  
     - Timeline of releases  
-    - Interactive KPIs  
 
     Helps understand how content is distributed.
 
@@ -1463,6 +1462,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
