@@ -909,38 +909,6 @@ with tab3:
         else:
             st.markdown("😬 Might struggle to gain traction…")
 
-    st.divider()
-
-    # =============================
-    # FEATURE IMPORTANCE (RF only)
-    # =============================
-    st.subheader("💡 What Drives IMDb Success?")
-
-    rf_model = RandomForestRegressor(n_estimators=200, random_state=42)
-    rf_model.fit(filtered_df_modelling[features], filtered_df_modelling[target])
-
-    importance = pd.Series(rf_model.feature_importances_, index=features)
-    importance_sorted = importance.sort_values()
-
-    fig_imp = go.Figure(go.Bar(
-        x=importance_sorted.values,
-        y=importance_sorted.index,
-        orientation='h',
-        marker_color='red'
-    ))
-
-    fig_imp.update_layout(
-        title="Feature Importance for IMDb Rating Prediction",
-        xaxis_title="Importance Score",
-        yaxis_title="Feature",
-        height=400,
-        template="plotly_white"
-    )
-
-    st.plotly_chart(fig_imp, use_container_width=True)
-
-    st.info("🎬 Director influence dominates — audience trusts creators they love.")
-
 with tab4:
     
         netflix_imdb_df=netflix_imdb_df.drop(columns=['runtime_mins'])
@@ -1426,6 +1394,7 @@ with tab4:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
