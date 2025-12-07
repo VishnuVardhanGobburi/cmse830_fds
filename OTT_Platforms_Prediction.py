@@ -170,18 +170,11 @@ with tab1:
     ---
 
     #### **Netflix Content Success Analysis**
-    In-depth, insight-driven analytics including:
-    - Movies vs TV Shows rating comparison
-    - Rating trends over time
-    - Genre performance
-    - Country-wise success patterns
-    - Director influence
-    - Popularity vs quality
+    Insight-driven analytics where answers questions like:
 
-    This tab answers questions like:
     - “Do TV shows perform better than movies?”
     - “Which genres consistently succeed?”
-    - “Do certain directors raise audience expectations?”
+    - "Which country delivers better content?"
 
     ---
 
@@ -1462,6 +1455,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
