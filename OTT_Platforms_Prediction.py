@@ -324,7 +324,6 @@ with tab3:
             "How Have Ratings Evolved Over Time?",
             "Genre Showdown: Who Wins the Ratings Race?",
             "Global Content: Who Delivers the Best Hits?",
-            "Director Impact: Who Delivers Netflix’s Best Content?",
             "Audience Love: Ratings vs Popularity",
             "Does Length Make It Better?"
         ],
@@ -1392,6 +1391,7 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
+
 
 
 
