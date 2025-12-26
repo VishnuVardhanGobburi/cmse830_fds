@@ -1,4 +1,3 @@
-
 import streamlit as st
 import numpy as np
 import pandas as pd
@@ -15,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import root_mean_squared_error, r2_score
+from sklearn.model_selection import train_test_split, KFold
 
 st.set_page_config(page_title="Netflix IMDb Analysis", layout="wide")
 
@@ -733,105 +733,190 @@ with tab4:
     st.markdown("#### Build your content & predict how well it performs on IMDb!")
 
     # =============================
-    # DATA ENCODING & CLEANING
+    # DATA CLEANING / BASE FEATURES
     # =============================
     filtered_df_modelling = filtered_df.copy()
 
     # --- Compute total runtime (Movies: minutes | TV: episodes * minutes) ---
-    filtered_df_modelling['total_runtime'] = filtered_df_modelling.apply(
-        lambda row: row['runtime_mins'] if row['content_type'] == "Movie"
-        else (row['runtime_mins'] * row.get('episodes', np.nan)
-              if pd.notna(row.get('episodes', np.nan)) else np.nan),
-        axis=1
+    filtered_df_modelling["total_runtime"] = filtered_df_modelling.apply(
+        lambda row: row["runtime_mins"]
+        if row["content_type"] == "Movie"
+        else (
+            row["runtime_mins"] * row.get("episodes", np.nan)
+            if pd.notna(row.get("episodes", np.nan))
+            else np.nan
+        ),
+        axis=1,
     )
-    filtered_df_modelling['total_runtime'] = filtered_df_modelling['total_runtime'].fillna(
-        filtered_df_modelling['total_runtime'].median()
+
+    filtered_df_modelling["total_runtime"] = filtered_df_modelling["total_runtime"].fillna(
+        filtered_df_modelling["total_runtime"].median()
     )
 
-    # Frequency Encoding: Country & Genre
-    country_freq = filtered_df_modelling['production_country'].value_counts(normalize=True)
-    filtered_df_modelling['country_encoded'] = filtered_df_modelling['production_country'].map(country_freq)
+    # Keep original rating text for later one-hot
+    filtered_df_modelling["original_rating"] = filtered_df_modelling["content_rating"]
 
-    genre_freq = filtered_df_modelling['genre'].value_counts(normalize=True)
-    filtered_df_modelling['genre_encoded'] = filtered_df_modelling['genre'].map(genre_freq)
+    # Keep ONLY what we need (raw columns, no leakage features yet)
+    needed_cols = [
+        "content_type",
+        "production_country",
+        "genre",
+        "director",
+        "total_runtime",
+        "original_rating",
+        "IMDb_avg_rating",
+    ]
+    filtered_df_modelling = filtered_df_modelling[needed_cols].copy()
 
-    # Create content_rating dummies
-    filtered_df_modelling['original_rating'] = filtered_df_modelling['content_rating']
-    filtered_df_modelling = pd.get_dummies(filtered_df_modelling,
-                                           columns=['content_rating'],
-                                           prefix='rating')
-
-    # Director encoding using average IMDb rating per director
-    global_mean = filtered_df_modelling['IMDb_avg_rating'].mean()
-    director_mean = filtered_df_modelling.groupby('director')['IMDb_avg_rating'].mean()
-    filtered_df_modelling['director_encoded'] = filtered_df_modelling['director'].map(director_mean).fillna(global_mean)
-
-    # --- Define features & target ---
-    rating_cols = [c for c in filtered_df_modelling.columns if c.startswith("rating_")]
-    features = ['country_encoded', 'genre_encoded', 'total_runtime', 'director_encoded'] + rating_cols
-    target = 'IMDb_avg_rating'
-
-    # Drop rows with missing predictors/target
-    filtered_df_modelling = filtered_df_modelling.dropna(subset=features + [target]).reset_index(drop=True)
+    # Drop rows missing critical fields
+    filtered_df_modelling = filtered_df_modelling.dropna(
+        subset=["production_country", "genre", "director", "total_runtime", "original_rating", "IMDb_avg_rating"]
+    ).reset_index(drop=True)
 
     # Separate Movies / TV data for modeling
-    movies_df = filtered_df_modelling[filtered_df_modelling['content_type'] == "Movie"]
-    tv_df = filtered_df_modelling[filtered_df_modelling['content_type'] == "TV Show"]
+    movies_df = filtered_df_modelling[filtered_df_modelling["content_type"] == "Movie"].copy()
+    tv_df = filtered_df_modelling[filtered_df_modelling["content_type"] == "TV Show"].copy()
+
 
     # =============================
-    # MODEL TRAINING FUNCTION
+    # BEST PRACTICE: OOF TARGET ENCODING (Director)
     # =============================
-    def train_models(df):
-        X = df[features]
-        y = df[target]
+    def oof_target_encode(train_cat: pd.Series, y: pd.Series, n_splits=5, m=10, random_state=42):
+        """
+        Out-of-fold target encoding with smoothing.
+        Returns:
+        - oof_encoded (Series aligned to train_cat.index)
+        - full_map (dict/Series) fitted on full training data (to apply on test/new rows)
+        - global_mean (float)
+        Smoothing:
+        enc = (count*mean + m*global_mean) / (count + m)
+        """
+        kf = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        global_mean = y.mean()
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.20, random_state=42
+        oof = pd.Series(index=train_cat.index, dtype=float)
+
+        for tr_idx, val_idx in kf.split(train_cat):
+            tr_cat = train_cat.iloc[tr_idx]
+            tr_y = y.iloc[tr_idx]
+
+            stats = tr_y.groupby(tr_cat).agg(["mean", "count"])
+            smoothed = (stats["count"] * stats["mean"] + m * global_mean) / (stats["count"] + m)
+
+            oof.iloc[val_idx] = train_cat.iloc[val_idx].map(smoothed).fillna(global_mean)
+
+        # mapping using full train (for test/user input)
+        stats_full = y.groupby(train_cat).agg(["mean", "count"])
+        full_map = (stats_full["count"] * stats_full["mean"] + m * global_mean) / (stats_full["count"] + m)
+
+        return oof, full_map, global_mean
+
+
+    # =============================
+    # MODEL TRAINING FUNCTION (NO LEAKAGE)
+    # =============================
+    def train_models(df, n_splits_te=5, m_smooth=10):
+        """
+        Trains LR + RF using leakage-free encoders.
+        Returns models + metrics + artifacts needed for Streamlit user input encoding.
+        """
+        target = "IMDb_avg_rating"
+
+        # raw X (NO encoded cols here)
+        X_raw = df[["production_country", "genre", "director", "total_runtime", "original_rating"]].copy()
+        y = df[target].copy()
+
+        # split first (critical)
+        X_train_raw, X_test_raw, y_train, y_test = train_test_split(
+            X_raw, y, test_size=0.20, random_state=42
         )
 
-        # Linear Regression
+        # -------- train-only frequency encoders for country & genre --------
+        country_freq_tr = X_train_raw["production_country"].value_counts(normalize=True)
+        genre_freq_tr = X_train_raw["genre"].value_counts(normalize=True)
+
+        # -------- director OOF target encoding (fit on TRAIN only) --------
+        director_oof_train, director_map_train, global_mean_train = oof_target_encode(
+            train_cat=X_train_raw["director"],
+            y=y_train,
+            n_splits=n_splits_te,
+            m=m_smooth,
+            random_state=42,
+        )
+
+        # Build encoded train
+        X_train = pd.DataFrame(index=X_train_raw.index)
+        X_train["country_encoded"] = X_train_raw["production_country"].map(country_freq_tr).fillna(0)
+        X_train["genre_encoded"] = X_train_raw["genre"].map(genre_freq_tr).fillna(0)
+        X_train["total_runtime"] = X_train_raw["total_runtime"].astype(float)
+        X_train["director_encoded"] = director_oof_train  # OOF values
+
+        # One-hot for rating (fit on train categories then align)
+        train_rating_dum = pd.get_dummies(X_train_raw["original_rating"], prefix="rating")
+        X_train = pd.concat([X_train, train_rating_dum], axis=1)
+
+        # Build encoded test (apply train mappings ONLY)
+        X_test = pd.DataFrame(index=X_test_raw.index)
+        X_test["country_encoded"] = X_test_raw["production_country"].map(country_freq_tr).fillna(0)
+        X_test["genre_encoded"] = X_test_raw["genre"].map(genre_freq_tr).fillna(0)
+        X_test["total_runtime"] = X_test_raw["total_runtime"].astype(float)
+        X_test["director_encoded"] = X_test_raw["director"].map(director_map_train).fillna(global_mean_train)
+
+        test_rating_dum = pd.get_dummies(X_test_raw["original_rating"], prefix="rating")
+        X_test = pd.concat([X_test, test_rating_dum], axis=1)
+
+        # Align columns (important when test misses some rating categories)
+        X_test = X_test.reindex(columns=X_train.columns, fill_value=0)
+
+        feature_cols = list(X_train.columns)
+
+        # -------- models --------
         lr = LinearRegression().fit(X_train, y_train)
         lr_pred = lr.predict(X_test)
 
-        # Random Forest
         rf = RandomForestRegressor(n_estimators=200, random_state=42).fit(X_train, y_train)
         rf_pred = rf.predict(X_test)
 
         return {
-            "Linear Regression": (lr,
-                                    root_mean_squared_error(y_test, lr_pred),
-                                    r2_score(y_test, lr_pred)),
-            "Random Forest": (rf,
-                                 root_mean_squared_error(y_test, rf_pred),
-                                 r2_score(y_test, rf_pred))
+            "Linear Regression": (lr, root_mean_squared_error(y_test, lr_pred), r2_score(y_test, lr_pred)),
+            "Random Forest": (rf, root_mean_squared_error(y_test, rf_pred), r2_score(y_test, rf_pred)),
+            # artifacts for encoding user inputs later (VERY important)
+            "_artifacts": {
+                "country_freq": country_freq_tr,
+                "genre_freq": genre_freq_tr,
+                "director_map": director_map_train,
+                "global_mean": float(global_mean_train),
+                "feature_cols": feature_cols,
+            },
         }
+
 
     movie_models = train_models(movies_df)
     tv_models = train_models(tv_df)
+
 
     # =============================
     # USER INPUT AREA
     # =============================
     st.subheader("🎬 Build Your Content")
 
-    content_type_in = st.selectbox("Select Title Type",
-                                   ["Movie 🍿", "TV Show 📺"])
+    content_type_in = st.selectbox("Select Title Type", ["Movie 🍿", "TV Show 📺"])
 
     country_input = st.selectbox(
         "Production Country",
-        sorted(filtered_df_modelling['production_country'].dropna().unique())
+        sorted(filtered_df_modelling["production_country"].dropna().unique())
     )
     genre_input = st.selectbox(
         "Genre",
-        sorted(filtered_df_modelling['genre'].dropna().unique())
+        sorted(filtered_df_modelling["genre"].dropna().unique())
     )
     director_input = st.selectbox(
         "Director",
-        sorted(filtered_df_modelling['director'].dropna().unique())
+        sorted(filtered_df_modelling["director"].dropna().unique())
     )
     rating_input = st.selectbox(
         "Content Rating",
-        sorted(filtered_df_modelling['original_rating'].dropna().unique())
+        sorted(filtered_df_modelling["original_rating"].dropna().unique())
     )
 
     runtime_input = st.slider(
@@ -842,8 +927,9 @@ with tab4:
 
     st.divider()
 
+
     # =============================
-    # ② Model Leaderboard Display
+    # MODEL LEADERBOARD DISPLAY
     # =============================
     st.subheader("Model Leaderboard")
 
@@ -864,38 +950,47 @@ with tab4:
         rival.subheader("🍿 Movie Models")
         rival.caption("Not used for TV prediction")
 
-    for model_name, (_, rmse, r2) in sel_models.items():
+    # show only actual models (skip _artifacts)
+    for model_name, val in sel_models.items():
+        if model_name == "_artifacts":
+            continue
+        _, rmse, r2 = val
         section.metric(model_name, f"RMSE: {rmse:.3f}", f"R²: {r2:.3f}")
 
     st.divider()
 
+
     # =============================
-    # ③ PREDICTION ENGINE SELECTOR
+    # PREDICTION ENGINE SELECTOR
     # =============================
     st.subheader("Choose Model for Prediction")
-    selected_model = st.selectbox("Prediction Engine",
-                                  list(sel_models.keys()))
+    model_names = [k for k in sel_models.keys() if k != "_artifacts"]
+    selected_model = st.selectbox("Prediction Engine", model_names)
     model = sel_models[selected_model][0]
 
+    art = sel_models["_artifacts"]
+
+
     # =============================
-    # ④ MAKE PREDICTION
+    # MAKE PREDICTION (safe encoding)
     # =============================
     if st.button("Predict IMDb Rating"):
-        input_vec = [
-            country_freq.get(country_input, 0),
-            genre_freq.get(genre_input, 0),
-            runtime_input,
-            director_mean.get(director_input, global_mean)
-        ]
+        # base encoded vector as a dict (then align columns)
+        x = {
+            "country_encoded": float(art["country_freq"].get(country_input, 0)),
+            "genre_encoded": float(art["genre_freq"].get(genre_input, 0)),
+            "total_runtime": float(runtime_input),
+            "director_encoded": float(art["director_map"].get(director_input, art["global_mean"])),
+        }
 
-        encoded = [0] * len(rating_cols)
-        rating_col = f"rating_{rating_input}"
-        if rating_col in rating_cols:
-            encoded[rating_cols.index(rating_col)] = 1
+        # One-hot the selected rating (only columns model knows)
+        for c in art["feature_cols"]:
+            if c.startswith("rating_"):
+                x[c] = 1.0 if c == f"rating_{rating_input}" else 0.0
 
-        input_vec.extend(encoded)
+        X_one = pd.DataFrame([x]).reindex(columns=art["feature_cols"], fill_value=0)
 
-        prediction = float(model.predict([input_vec])[0])
+        prediction = float(model.predict(X_one)[0])
         st.success(f"Predicted IMDb Rating: **{prediction:.2f}**")
 
         if prediction >= 7.0:
@@ -905,6 +1000,7 @@ with tab4:
             st.markdown("👍 Good! **Audience will enjoy it.**")
         else:
             st.markdown("😬 Might struggle to gain traction…")
+
 
 with tab5:
     
@@ -1360,14 +1456,16 @@ with tab5:
         
                     ---
         
-                    ### **Director Encoding (Target Encoding)**  
-                    There are thousands of directors (extreme cardinality).  
-                    To avoid one-hot encoding, the **mean IMDb rating per director** was computed:
-                    
-                    Unknown directors receive the **global IMDb mean**.  
+                    ### **Director Encoding (K-Fold Out-of-Fold Target Encoding)**
 
-                     #### ✔ Why not target encoding to Country and Genre?
-                    - Unlike directors, countries and genres do not represent skill-based continuity, so their average ratings are not reliable and would cause noise if target encoded.
+                    The `director` feature has extremely high cardinality, making one-hot encoding impractical.
+
+                    To capture a director’s historical performance, **K-Fold out-of-fold target encoding with smoothing** was used:
+
+                    - For each training fold, a director’s encoding is computed using only the other folds
+                    - The encoding represents the smoothed mean IMDb rating of that director
+                    - Rare or unseen directors are assigned the global training-set mean
+
                     ---
         
                     ### **Separate Models for Movies & TV Shows**  
@@ -1391,41 +1489,3 @@ with tab5:
                     st.dataframe(movies_df.iloc[:,9:].head(5))
                     st.write("TV Show dataset")
                     st.dataframe(tv_df.iloc[:,9:].head(5))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
